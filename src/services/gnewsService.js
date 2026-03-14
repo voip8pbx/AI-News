@@ -41,7 +41,7 @@ export async function fetchTopHeadlines(options = {}) {
   // Try each API key until one works
   for (const apiKey of apiKeys) {
     try {
-      const url = new URL(`${GNEWS_API_BASE_URL}/top-headlines`);
+      const url = new URL(`${GNEWS_API_BASE_URL}/top-headlines`, window.location.origin);
       url.searchParams.set('category', category);
       url.searchParams.set('country', country);
       url.searchParams.set('max', max.toString());
@@ -103,7 +103,7 @@ export async function searchNews(query, options = {}) {
 
   for (const apiKey of apiKeys) {
     try {
-      const url = new URL(`${GNEWS_API_BASE_URL}/search`);
+      const url = new URL(`${GNEWS_API_BASE_URL}/search`, window.location.origin);
       url.searchParams.set('q', query);
       url.searchParams.set('country', country);
       url.searchParams.set('max', max.toString());

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const GNEWS_API_BASE_URL = 'https://gnews.io/api/v4';
+const GNEWS_API_BASE_URL = '/api/gnews';
 const API_KEYS = [
     import.meta.env.VITE_GNEWS_API_KEY,
     import.meta.env.VITE_GNEWS_FALLBACK_API_KEY,
@@ -33,7 +33,7 @@ const fetchWithFallback = async (endpoint, params) => {
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
             
-            const response = await axios.get(`${GNEWS_API_BASE_URL}${endpoint}`, {
+            const response = await axios.get(`${window.location.origin}${GNEWS_API_BASE_URL}${endpoint}`, {
                 params: { ...params, apikey: apiKey },
                 timeout: 25000, // Further increased timeout
             });

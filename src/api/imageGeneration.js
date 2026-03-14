@@ -439,7 +439,7 @@ export const fetchAndGenerateNewsImages = async (category = 'general', limit = 1
         for (const key of gnewsKeys) {
             try {
                 const response = await fetch(
-                    `https://gnews.io/api/v4/top-headlines?category=${encodeURIComponent(category)}&lang=en&max=${limit}&token=${key}`
+                    `/api/gnews/top-headlines?category=${encodeURIComponent(category)}&lang=en&max=${limit}&token=${key}`
                 );
 
                 if (response.ok) {

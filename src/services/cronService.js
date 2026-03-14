@@ -32,6 +32,10 @@ class CronService {
         return;
       }
 
+      if (!schedules || schedules.length === 0) {
+        console.log('[CronService] No active schedules found in database');
+      }
+
       console.log(`[CronService] Found ${schedules.length} active schedules`);
 
       // Start cron job for each active schedule
@@ -60,8 +64,12 @@ class CronService {
 
       // Create cron expression based on schedule frequency
       const intervalMs = this.getIntervalMs(schedule);
+      const category = schedule.category || 'general';
       
-      console.log(`[CronService] Starting interval job for schedule ${schedule.id} (${schedule.category}): every ${intervalMs}ms`);
+      console.log(`[CronService] Starting interval job for schedule ${schedule.id} (${category}): every ${intervalMs}ms`);
+      
+      // Execute once immediately
+      this.executeScheduledIngestion(schedule);
 
       // Use setInterval instead of node-cron for browser compatibility
       const interval = setInterval(async () => {
@@ -122,8 +130,12 @@ class CronService {
     console.log(`[CronService] Executing ingestion for schedule ${schedule.id} (${schedule.category})`);
 
     try {
+      const daysRemaining = schedule.days_remaining ?? schedule.daysRemaining;
+      const countToday = schedule.count_today ?? schedule.countToday;
+      const articlesPerDay = schedule.articles_per_day ?? schedule.articlesPerDay;
+
       // Check if we should run today (for daily limits)
-      if (schedule.daysRemaining !== 9999 && schedule.countToday >= schedule.articlesPerDay) {
+      if (daysRemaining !== 9999 && countToday >= articlesPerDay) {
         console.log(`[CronService] Daily limit reached for schedule ${schedule.id}, skipping`);
         return;
       }

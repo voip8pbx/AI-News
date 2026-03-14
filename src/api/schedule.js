@@ -165,11 +165,14 @@ export const runIngestion = async (schedule) => {
     const category = await databaseService.getOrCreateCategory(schedule.category, schedule.category);
     const categorySlug = category.slug;
 
+    const categoryStr = schedule.category || 'general';
+    const articlesPerDay = schedule.articles_per_day ?? schedule.articlesPerDay ?? 10;
+
     // Fetch articles from GNews API
     console.log("[Ingestion] Fetching articles from GNews API...");
     const gnewsData = await fetchTopHeadlines({
-      category: schedule.category.toLowerCase(),
-      max: Math.min(schedule.articlesPerDay, 20) // Limit to prevent API overuse
+      category: categoryStr.toLowerCase(),
+      max: Math.min(articlesPerDay, 20) // Limit to prevent API overuse
     });
 
     if (!gnewsData.articles || gnewsData.articles.length === 0) {

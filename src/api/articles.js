@@ -35,7 +35,7 @@ export const createArticleAI = async (articleData) => {
     for (const key of gnewsKeys) {
       try {
         const res = await fetch(
-          `https://gnews.io/api/v4/top-headlines?category=${encodeURIComponent(
+          `/api/gnews/top-headlines?category=${encodeURIComponent(
             category.toLowerCase()
           )}&lang=en&max=1&token=${key}`
         );
