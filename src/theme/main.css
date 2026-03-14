@@ -1,0 +1,132 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Enable class-based dark mode */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Rich Text Editor Styles */
+.rich-text-title .ProseMirror,
+.rich-text-summary .ProseMirror {
+  outline: none;
+  border: none;
+  padding: 0;
+}
+
+.rich-text-title .ProseMirror {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-style: italic;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  min-height: 40px;
+}
+
+.rich-text-summary .ProseMirror {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  min-height: 80px;
+}
+
+.rich-text-title .ProseMirror p,
+.rich-text-summary .ProseMirror p {
+  margin: 0;
+}
+
+.rich-text-title .ProseMirror p.is-editor-empty:first-child::before,
+.rich-text-summary .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #94a3b8;
+  pointer-events: none;
+  height: 0;
+}
+
+/* 1. Standard Tailwind v4 Theme Block */
+@theme {
+  /* Editorial Color Palette */
+  --color-ink: #0f172a;
+  --color-paper: #ffffff;
+  --color-surface: #f8fafc;
+  --color-accent: #2563eb;
+  --color-muted: #64748b;
+  --color-border: #e2e8f0;
+
+  /* Typography */
+  --font-serif: "Ibarra Real Nova", serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+/* Dark mode color palette */
+.dark {
+  --color-ink: #f8fafc;
+  --color-paper: #0b1120;
+  --color-surface: #1e293b;
+  --color-accent: #6366f1;
+  --color-muted: #94a3b8;
+  --color-border: #1e293b;
+}
+
+/* 2. Scoped Styling & Dark Mode Logic */
+@layer base {
+
+  /* Apply to the admin section specifically */
+  .admin-theme {
+    @apply antialiased transition-colors duration-300;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  /* Headings only inside admin-theme */
+  .admin-theme h1,
+  .admin-theme h2,
+  .admin-theme h3,
+  .admin-theme h4 {
+    @apply font-serif font-black tracking-tight;
+  }
+
+  /* Manual Dark Mode Mapping for the Scoped Container */
+  .admin-theme.dark {
+    --color-ink: #f8fafc;
+    --color-paper: #0b1120;
+    --color-surface: #1e293b;
+    --color-accent: #6366f1;
+    --color-muted: #94a3b8;
+    --color-border: #1e293b;
+
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  /* Global dark mode styles for the entire app */
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html.dark body {
+    background-color: #0f172a;
+    color: #f1f5f9;
+  }
+
+  /* Specific dark mode for magazine-grid */
+  html.dark .magazine-grid {
+    background-color: #0f172a !important;
+  }
+
+  /* Specific dark mode for trending-section */
+  html.dark .trending-section {
+    background-color: #0f172a !important;
+  }
+
+  /* Specific dark mode for news-section */
+  html.dark .news-section {
+    background-color: #0f172a !important;
+  }
+}
+
+/* 3. Smooth scrolling for the whole app */
+html {
+  scroll-behavior: smooth;
+}
