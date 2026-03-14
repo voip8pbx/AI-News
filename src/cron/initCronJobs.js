@@ -9,13 +9,20 @@
  */
 
 import cronService from '../services/cronService.js';
+import { imagePipeline } from '../services/imagePipeline.js';
 
-/** Start the automatic hourly ingestion loop */
+/** Start the automatic hourly ingestion loop & AI pipeline */
 export const startCronJobs = async () => {
   try {
-    console.log('[CronInit] Starting automatic news cron…');
+    console.log('[CronInit] Starting autonomous background clusters…');
+    
+    // 1. Start news fetching loop
     await cronService.initialize();
-    console.log('[CronInit] ✓ Cron started – fetching every hour for all categories.');
+
+    // 2. Start parallel AI image pipeline
+    imagePipeline.start();
+
+    console.log('[CronInit] ✓ Background services operational.');
   } catch (error) {
     console.error('[CronInit] Failed to start cron:', error);
   }

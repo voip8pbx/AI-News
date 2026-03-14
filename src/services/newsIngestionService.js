@@ -141,32 +141,36 @@ async function getExistingUrls(urls) {
  */
 async function insertArticles(articles, categorySlug) {
   const results = { inserted: 0, skipped: 0, errors: [] };
+  const trulyInserted = [];
 
   for (const article of articles) {
     try {
       const slug = slugify(article.title);
+      const articleData = {
+        title:        article.title,
+        slug:         slug,
+        description:  article.description  || '',
+        content:      article.content      || article.description || '',
+        url:          article.url,
+        banner_image: article.image        || null,
+        author:       article.author       || article.source?.name || 'GNews',
+        category_slug: categorySlug,
+        published_at: article.publishedAt  || new Date().toISOString(),
+        source_name:  article.source?.name || 'GNews',
+        source_url:   article.source?.url  || '',
+        status:       'published',
+        ai_image_status: 'pending', // Queue for AI generation
+        created_at:   new Date().toISOString(),
+        updated_at:   new Date().toISOString(),
+      };
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('articles')
-        .insert({
-          title:        article.title,
-          slug:         slug,
-          description:  article.description  || '',
-          content:      article.content      || article.description || '',
-          url:          article.url,
-          banner_image: article.image        || null,
-          author:       article.author       || article.source?.name || 'GNews',
-          category_slug: categorySlug,
-          published_at: article.publishedAt  || new Date().toISOString(),
-          source_name:  article.source?.name || 'GNews',
-          source_url:   article.source?.url  || '',
-          status:       'published',
-          created_at:   new Date().toISOString(),
-          updated_at:   new Date().toISOString(),
-        });
+        .insert(articleData)
+        .select('id, title, description, content, category_slug, banner_image')
+        .single();
 
       if (error) {
-        // 23505 = unique_violation → duplicate, silently skip
         if (error.code === '23505') {
           results.skipped++;
           console.log(`[NewsIngestion] Skipped duplicate: ${article.title.slice(0, 60)}`);
@@ -176,12 +180,19 @@ async function insertArticles(articles, categorySlug) {
         }
       } else {
         results.inserted++;
+        trulyInserted.push(data);
         console.log(`[NewsIngestion] ✓ Inserted: ${article.title.slice(0, 60)}`);
       }
     } catch (err) {
       results.errors.push(`Error: ${err.message}`);
       console.error('[NewsIngestion] Unexpected error inserting article:', err.message);
     }
+  }
+
+  // Notify the pipeline to start processing these new arrivals immediately
+  if (trulyInserted.length > 0) {
+    const { imagePipeline } = await import('./imagePipeline.js');
+    imagePipeline.enqueue(trulyInserted).catch(e => console.warn('[Ingestion] Pipeline error:', e));
   }
 
   return results;

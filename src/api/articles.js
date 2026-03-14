@@ -201,7 +201,8 @@ const mapArticle = (row) => {
   return {
     ...row,
     // Snake-case → camelCase field mappings
-    bannerImage:  row.banner_image  ?? row.bannerImage,
+    // PRIORITIZE AI Generated Image from Cloudinary (ai_image_url)
+    bannerImage:  row.ai_image_url ?? row.banner_image ?? row.bannerImage,
     publishedAt:  row.published_at  ?? row.publishedAt,
     categorySlug: row.category_slug ?? row.categorySlug,
     source: row.source || (row.source_name ? { name: row.source_name, url: row.source_url || '' } : undefined),
@@ -230,6 +231,30 @@ export const getArticles = async (page = 1, limit = 10) => {
     totalCount: count,
     totalPages: Math.ceil(count / limit),
     currentPage: page
+  };
+};
+
+/**
+ * PRODUCTION-GRADE API: Only returns articles where AI Image generation is finished.
+ * This ensures the high-end newsroom aesthetic is preserved.
+ */
+export const getOnlyAiNews = async (page = 1, limit = 10) => {
+  const start = (page - 1) * limit;
+  const end = start + limit - 1;
+
+  const { data, error, count } = await supabase
+    .from('articles')
+    .select('*', { count: 'exact' })
+    .eq('ai_image_status', 'completed')
+    .not('ai_image_url', 'is', null)
+    .order('published_at', { ascending: false })
+    .range(start, end);
+
+  if (error) throw error;
+
+  return {
+    articles: (data || []).map(mapArticle),
+    totalCount: count
   };
 };
 

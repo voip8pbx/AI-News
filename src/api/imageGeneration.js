@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { uploadToCloudinary } from '../services/cloudinaryService';
 
 // Environment variables
 const NANO_BANANA_API_KEY = import.meta.env.VITE_NANO_BANANA_API_KEY;
@@ -38,108 +39,224 @@ export const generateArticleHash = (title) => {
  * @returns {string} - Formatted prompt for editorial poster generation
  */
 const buildNanoBananaPrompt = (title, description, imageUrl) => {
-    const prompt = `Create a premium editorial social media poster for news journalism.
+    const prompt = `You are a world-class editorial creative director working for Bloomberg, Forbes, Financial Times, and Reuters.
+Your task is to transform real verified news into a premium editorial social media poster.
+The result must feel like global newsroom visual journalism — elite, credible, cinematic, colorful, modern, and scroll-stopping.
+The final output must look like it was produced by a top international media newsroom design team.
 
-CANVAS SPECIFICATIONS:
-- Resolution: 1080 × 1920 pixels (9:16 vertical aspect ratio)
-- Optimized for Instagram, LinkedIn, and newsroom social feeds
-- Design must resemble global newsroom visual journalism - elite, credible, cinematic, colorful, modern, scroll-stopping
+INPUT SYSTEM
+The user may provide:
+• a news article link
+ • a news headline
+ • a news paragraph
+If a news link is provided, extract all information from that article.
+If no link is provided, select a recent major news story from credible sources such as:
+• Reuters
+ • Bloomberg
+ • BBC News
+ • Financial Times
+ • The Times of India
+ • Hindustan Times
+The news must always be:
+• recent
+ • factual
+ • globally relevant
+ • verifiable
+Never invent news.
 
-HEADLINE STYLE:
-Write a sharp newsroom headline in Bloomberg/Financial Times tone.
-- Factual and authoritative
-- Short and powerful
-- Maximum 10 words
-- Example: "Tech Giants Face Record $2.3B Antitrust Fine"
+REAL IMAGE REQUIREMENT (VERY IMPORTANT)
+The poster must use real editorial photography only.
+Rules:
+• Use real photos of the actual people mentioned in the news
+ • Use real locations, events, or company imagery when relevant
+ • Do NOT generate AI faces or fictional scenes
+ • Do NOT create artificial portraits
+Images should resemble authentic news photography used by major media organizations.
+If a political leader, CEO, or public figure is involved, use real images of that person from public events or press coverage.
 
-SUB-HEADLINE:
-One sentence summarizing the key development.
-- Explain what happened and why it matters
-- Maximum 20 words
+NEWS ANALYSIS
+Read the article carefully and extract only verified information.
+Generate the following:
 
-BODY SUMMARY:
-Write 2-3 short lines explaining:
-- The event
-- The context
-- The broader impact
-- Professional newsroom tone, neutral language, no exaggeration, no emojis
+HEADLINE
+Rewrite the news into a sharp newsroom headline.
+Style:
+• Bloomberg tone
+ • Financial Times tone
+ • factual and authoritative
+ • short and powerful
+Maximum 10 words.
 
-SOURCE ATTRIBUTION (MANDATORY):
-Always include the news source.
+SUB-HEADLINE
+Write one sentence summarizing the key development.
+It must explain:
+• what happened
+ • why it matters
+Maximum 20 words.
+
+BODY SUMMARY
+Write 2–3 short lines explaining:
+• the event
+ • the context
+ • the broader impact
+Rules:
+• professional newsroom tone
+ • neutral language
+ • no exaggeration
+ • no slang
+ • no emojis
+
+SOURCE ATTRIBUTION (MANDATORY)
+Always include the news source in the poster.
 Format: Source: [Publication Name]
-Placement: Bottom area, small editorial text, subtle newsroom style
+Examples: Source: Reuters, Source: Hindustan Times, Source: BBC News
+Placement:
+• bottom area of the poster
+ • small editorial text
+ • subtle newsroom style
 
-VISUAL COMPOSITION:
-- Primary image: Use realistic contextual imagery related to the news
-- For political leaders/CEOs/public figures: Use real images from public events or press coverage
-- For companies/locations: Use real headquarters, buildings, or relevant imagery
-- Avoid generic stock imagery
-- Visual must clearly represent the actual story
+VISUAL GENERATION SYSTEM
+Create a premium editorial poster.
+Canvas:
+1080 × 1920
+Aspect Ratio:
+9:16 vertical
+Optimized for:
+• Instagram
+ • LinkedIn
+ • newsroom social feeds
+The design must resemble editorial visual journalism, not advertising.
 
-LAYOUT SYSTEM (rotate elements for variety):
-- Left text / right visual
-- Right text / left visual
-- Center headline with layered background
-- Minimal editorial layout
-- Futuristic grid layout
-- Luxury cinematic composition
-- Every generation must be visually different
+PRIMARY IMAGE SYSTEM
+Use realistic contextual imagery related to the news.
+Examples:
+• political leaders
+ • CEOs or founders
+ • company headquarters
+ • government buildings
+ • infrastructure projects
+ • technology labs
+ • financial districts
+ • geopolitical maps
+Avoid generic stock imagery.
+The visual must clearly represent the actual story.
 
-COLOR THEMES (choose one per generation):
-- Black + Gold (premium, authoritative)
-- White + Lemon Green (fresh, modern)
-- Blue + White Gradient (trustworthy, corporate)
-- Cream + Beige (elegant, editorial)
-- Black + Neon Green (bold, tech-forward)
-- Palette must feel: premium, editorial, colorful yet professional, visually engaging
+AUTO-UNIQUE DESIGN ENGINE
+Every generation must produce a visually different layout.
+Rotate elements including:
+• layout structure
+ • subject placement
+ • text hierarchy
+ • typography style
+ • visual composition
+ • graphic overlays
+Possible layouts:
+• Left text / right visual
+ • Right text / left visual
+ • Center headline with layered background
+ • Minimal editorial layout
+ • Futuristic grid layout
+ • Luxury cinematic composition
+Never repeat the same layout consecutively.
 
-CONTEXTUAL IMAGE TREATMENT:
-- Vertical image strips
-- Blurred background layers
-- Newsroom grid textures
-- Subtle map overlays
-- Abstract silhouettes
-- Faded background visuals
-- Avoid: circular thumbnails, cheap collage layouts, clutter
+COLOR SYSTEM
+Choose one color theme per generation.
+Possible themes:
+• Black + Gold
+ • White + Lemon Green
+ • Blue + White Gradient
+ • Cream + Beige
+ • Black + Neon Green
+The palette must feel:
+• premium
+ • editorial
+ • colorful yet professional
+ • visually engaging
 
-TYPOGRAPHY:
-- Strong headline hierarchy
-- Elegant spacing
-- Magazine-quality composition
-- High readability
-- Use premium editorial typography inspired by:
-  * Bloomberg newsroom graphics
-  * Financial Times editorial layouts
-  * Reuters visual reports
-  * Forbes corporate design
+CONTEXTUAL IMAGE TREATMENT
+When multiple visuals exist in the story, integrate them using editorial techniques:
+• vertical image strips
+ • blurred background layers
+ • newsroom grid textures
+ • subtle map overlays
+ • abstract silhouettes
+ • faded background visuals
+Avoid:
+• circular thumbnails
+ • cheap collage layouts
+ • clutter
 
-BRAND ELEMENT:
-Include subtle brand mark "StartEJ"
-- Clean corner placement
-- Small, elegant, integrated naturally into layout
+TYPOGRAPHY
+Use premium editorial typography.
+Design inspiration:
+• Bloomberg newsroom graphics
+ • Financial Times editorial layouts
+ • Reuters visual reports
+ • Forbes corporate design
+Rules:
+• strong headline hierarchy
+ • elegant spacing
+ • magazine-quality composition
+ • high readability
 
-DESIGN TONE:
-- Cinematic, editorial, modern, colorful yet professional
-- Premium newsroom aesthetic
-- Avoid: clutter, flashy effects, clickbait styling, cartoon visuals
+BRAND ELEMENT
+Include a subtle brand mark:
+StartEJ
+Placement:
+• clean corner placement
+ • small
+ • elegant
+ • integrated naturally into layout
 
-NEGATIVE CONSTRAINTS:
-- Do NOT generate fake news or incorrect facts
-- Do NOT use AI-generated faces or fictional scenes
-- Do NOT create artificial portraits
-- Do NOT use low-resolution graphics or amateur typography
-- All visuals must remain journalistically credible
+DESIGN STYLE
+Visual tone must be:
+• cinematic
+ • editorial
+ • modern
+ • colorful yet professional
+ • premium newsroom aesthetic
+Avoid:
+• clutter
+ • flashy effects
+ • clickbait styling
+ • cartoon visuals
 
-QUALITY STANDARD:
-International news agency quality (BBC, Reuters, Bloomberg, Financial Times, National Geographic)
+EXPORT SETTINGS
+Resolution: 1080 × 1920
+Aspect Ratio: 9:16
+Quality:
+• ultra sharp
+ • high detail
+ • social-media ready
 
-IMPORTANT: Do not add text, titles, logos, watermarks, or captions in the image. The image should be the visual representation only - all text will be added separately.
+NEGATIVE RULES
+Do NOT generate:
+• fake news
+ • incorrect facts
+ • exaggerated claims
+ • AI-generated faces
+ • fictional scenes
+ • low-resolution graphics
+ • amateur typography
+All visuals must remain journalistically credible.
 
+FINAL OUTPUT FORMAT
+Return a complete Nano Banana Pro image prompt containing:
+• Headline
+ • Sub-headline
+ • Body summary
+ • Source attribution
+ • Visual composition instructions
+ • Layout system
+ • Color theme
+ • Typography guidance
+ • Brand placement
+The final design must look like a professional global newsroom poster ready for Instagram or LinkedIn.
+
+INPUT DATA FOR THIS GENERATION:
 Article Title: ${title}
-
-Article Context/Description: ${description}
-
-${imageUrl ? `Reference Image (use for visual inspiration): ${imageUrl}` : 'Create new visual based on article context above.'}`;
+Article Context: ${description}
+${imageUrl ? `Reference Image URL: ${imageUrl}` : ''}`;
 
     return prompt;
 };
@@ -297,23 +414,28 @@ export const generateArticleImage = async (article, forceRegenerate = false) => 
     const prompt = buildNanoBananaPrompt(title, description, imageUrl);
 
     try {
-        const generatedImageUrl = await callNanoBananaAPI(prompt);
-        console.log('[ImageGen] Generated image URL:', generatedImageUrl.substring(0, 60));
+        const rawImageUrl = await callNanoBananaAPI(prompt);
+        console.log('[ImageGen] Got raw image from AI:', rawImageUrl.substring(0, 60));
 
-        if (!generatedImageUrl) {
+        if (!rawImageUrl) {
             throw new Error('Generation returned empty URL');
         }
 
-        // Cache the result (but don't fail if caching fails)
+        // --- NEW CLOUDINARY INTEGRATION ---
+        // Upload the temporary AI image to permanent Cloudinary storage
+        const permanentUrl = await uploadToCloudinary(rawImageUrl, 'ai_news_posters');
+        console.log('[ImageGen] Permanent Cloudinary URL:', permanentUrl);
+
+        // Cache the result (using the permanent URL)
         try {
-            await cacheGeneratedImage(title, articleHash, generatedImageUrl, imageUrl);
+            await cacheGeneratedImage(title, articleHash, permanentUrl, imageUrl);
             console.log('[ImageGen] Image cached successfully');
         } catch (cacheErr) {
             console.warn('[ImageGen] Caching failed (continuing anyway):', cacheErr.message);
         }
 
-        console.log('[ImageGen] Generated new image for:', title.substring(0, 30), '→', generatedImageUrl.substring(0, 50));
-        return generatedImageUrl;
+        console.log('[ImageGen] Generated & Saved image for:', title.substring(0, 30), '→', permanentUrl.substring(0, 50));
+        return permanentUrl;
     } catch (error) {
         console.error('[ImageGen] Failed to generate image for', title.substring(0, 30), ':', error.message);
         // NEVER return original image - throw error for retry

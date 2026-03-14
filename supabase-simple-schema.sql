@@ -1,16 +1,16 @@
 -- =====================================================
--- Verbis AI News Platform - Simple Schema
+-- Verbis AI News Platform - Complete Master Schema
 -- =====================================================
--- Run each section separately in Supabase SQL Editor
+-- This file contains the full database structure, including 
+-- the Production-Grade AI Image Pipeline enhancements.
+--
+-- Run this in the Supabase SQL Editor.
+-- =====================================================
 
--- =====================================================
--- 1. CREATE EXTENSION
--- =====================================================
+-- 1. EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- =====================================================
 -- 2. USERS TABLE
--- =====================================================
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
@@ -26,9 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
 -- 3. CATEGORIES TABLE
--- =====================================================
 CREATE TABLE IF NOT EXISTS categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
@@ -47,9 +45,7 @@ CREATE TABLE IF NOT EXISTS categories (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
 -- 4. ARTICLES TABLE
--- =====================================================
 CREATE TABLE IF NOT EXISTS articles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
@@ -89,9 +85,11 @@ CREATE TABLE IF NOT EXISTS articles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
+-- AI Image Pipeline Additions to Articles
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS ai_image_url TEXT;
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS ai_image_status TEXT DEFAULT 'pending' CHECK (ai_image_status IN ('pending', 'processing', 'completed', 'failed'));
+
 -- 5. SAVED ARTICLES TABLE
--- =====================================================
 CREATE TABLE IF NOT EXISTS saved_articles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -100,9 +98,7 @@ CREATE TABLE IF NOT EXISTS saved_articles (
     UNIQUE(user_id, article_id)
 );
 
--- =====================================================
 -- 6. LIKED ARTICLES TABLE
--- =====================================================
 CREATE TABLE IF NOT EXISTS liked_articles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -111,9 +107,7 @@ CREATE TABLE IF NOT EXISTS liked_articles (
     UNIQUE(user_id, article_id)
 );
 
--- =====================================================
 -- 7. ARTICLE VIEWS TABLE
--- =====================================================
 CREATE TABLE IF NOT EXISTS article_views (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     article_id UUID REFERENCES articles(id) ON DELETE CASCADE,
@@ -125,9 +119,7 @@ CREATE TABLE IF NOT EXISTS article_views (
     viewed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
 -- 8. COMMENTS TABLE
--- =====================================================
 CREATE TABLE IF NOT EXISTS comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     article_id UUID REFERENCES articles(id) ON DELETE CASCADE,
@@ -141,9 +133,7 @@ CREATE TABLE IF NOT EXISTS comments (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
 -- 9. COMMENT LIKES TABLE
--- =====================================================
 CREATE TABLE IF NOT EXISTS comment_likes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
@@ -152,9 +142,7 @@ CREATE TABLE IF NOT EXISTS comment_likes (
     UNIQUE(comment_id, user_id)
 );
 
--- =====================================================
--- 10. NEWS IMAGES TABLE
--- =====================================================
+-- 10. NEWS IMAGES TABLE (AI Cache)
 CREATE TABLE IF NOT EXISTS news_images (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     article_title TEXT NOT NULL,
@@ -168,9 +156,7 @@ CREATE TABLE IF NOT EXISTS news_images (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- 11. SCHEDULES TABLE
--- =====================================================
+-- 11. SCHEDULES TABLE (Cron Settings)
 CREATE TABLE IF NOT EXISTS schedules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     category TEXT NOT NULL,
@@ -191,9 +177,7 @@ CREATE TABLE IF NOT EXISTS schedules (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
 -- 12. CRON EXECUTION LOGS TABLE
--- =====================================================
 CREATE TABLE IF NOT EXISTS cron_execution_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     schedule_id UUID REFERENCES schedules(id) ON DELETE CASCADE,
@@ -208,9 +192,7 @@ CREATE TABLE IF NOT EXISTS cron_execution_logs (
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
--- =====================================================
 -- 13. SETTINGS TABLE
--- =====================================================
 CREATE TABLE IF NOT EXISTS settings (
     id TEXT PRIMARY KEY DEFAULT 'model_config',
     site_title TEXT DEFAULT 'Verbis AI News',
@@ -226,3 +208,49 @@ CREATE TABLE IF NOT EXISTS settings (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 14. OPTIMIZATION INDEXES
+CREATE INDEX IF NOT EXISTS idx_articles_ai_status ON articles(ai_image_status);
+CREATE INDEX IF NOT EXISTS idx_news_images_hash ON news_images(article_hash);
+CREATE INDEX IF NOT EXISTS idx_articles_category_slug ON articles(category_slug);
+
+-- 15. VIEWS
+CREATE OR REPLACE VIEW v_ai_news AS
+SELECT 
+    id, 
+    title, 
+    description, 
+    content, 
+    source_name, 
+    url, 
+    category_slug, 
+    banner_image as original_image_url,
+    COALESCE(ai_image_url, banner_image) as ai_image_url,
+    published_at
+FROM articles
+WHERE status = 'published'
+ORDER BY published_at DESC;
+
+-- 16. SEED DATA (Default Config)
+
+-- Create default categories
+INSERT INTO categories (name, slug, description, search_query, is_active)
+VALUES 
+('Technology', 'technology', 'Latest in Tech and AI', 'technology', true),
+('World News', 'world', 'Global headlines', 'world', true)
+ON CONFLICT (slug) DO NOTHING;
+
+-- Create ingestion schedules
+INSERT INTO schedules (category, articles_per_day, days_remaining, status, interval)
+VALUES 
+('technology', 10, 9999, 'active', 'hourly'),
+('world', 10, 9999, 'active', 'hourly')
+ON CONFLICT DO NOTHING;
+
+-- Initialize main settings
+INSERT INTO settings (id, site_title, active_text_provider, active_image_provider) 
+VALUES ('model_config', 'Verbis AI News', 'openrouter', 'nano-banana')
+ON CONFLICT (id) DO UPDATE 
+SET site_title = EXCLUDED.site_title,
+    active_text_provider = EXCLUDED.active_text_provider,
+    active_image_provider = EXCLUDED.active_image_provider;
