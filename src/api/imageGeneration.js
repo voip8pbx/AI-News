@@ -268,9 +268,10 @@ ${imageUrl ? `Reference Image URL: ${imageUrl}` : ''}`;
  */
 const callNanoBananaAPI = async (prompt) => {
     // Check if key is missing or is the default placeholder key
-    const isPlaceholderKey = !NANO_BANANA_API_KEY || 
-                            NANO_BANANA_API_KEY.includes('AIzaSyDg') || 
-                            NANO_BANANA_API_KEY === 'your_key_here';
+    const isPlaceholderKey = !NANO_BANANA_API_KEY ||
+        NANO_BANANA_API_KEY === 'your_key_here' ||
+        NANO_BANANA_API_KEY === 'YOUR_API_KEY_HERE' ||
+        NANO_BANANA_API_KEY.trim() === '';
 
     if (isPlaceholderKey) {
         console.warn('[ImageGen] Nano Banana API key not configured or using placeholder. Using stable picsum fallback.');
@@ -438,7 +439,14 @@ export const generateArticleImage = async (article, forceRegenerate = false) => 
         return permanentUrl;
     } catch (error) {
         console.error('[ImageGen] Failed to generate image for', title.substring(0, 30), ':', error.message);
-        // NEVER return original image - throw error for retry
+
+        // Fallback to original article image if AI generation fails
+        if (imageUrl) {
+            console.log('[ImageGen] Falling back to original image:', imageUrl.substring(0, 40));
+            return imageUrl;
+        }
+
+        // If no original image, throw error for retry
         throw new Error(`Image generation failed: ${error.message}`);
     }
 };
@@ -548,8 +556,8 @@ export const runBackgroundImageWorker = async (articles) => {
  */
 export const fetchAndGenerateNewsImages = async (category = 'general', limit = 10) => {
     const gnewsKeys = [
-        GNEWS_API_KEY, 
-        GNEWS_FALLBACK_API_KEY, 
+        GNEWS_API_KEY,
+        GNEWS_FALLBACK_API_KEY,
         GNEWS_TERTIARY_API_KEY,
         GNEWS_QUATERNARY_API_KEY,
         GNEWS_QUINARY_API_KEY

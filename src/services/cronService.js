@@ -28,6 +28,7 @@ class CronService {
     this._intervalId   = null;
     this._isRunning    = false;
     this._isInitialized = false;
+    this._activePromise = null;
 
     // Per-category status map  { [slug]: { lastRun, lastResult, runCount, isRunning } }
     this._jobStatus = {};
@@ -170,32 +171,44 @@ class CronService {
 
   /** Execute ingestion for every category sequentially */
   async _runAll() {
-    if (this._isRunning) {
-      console.log('[CronService] Previous run still in progress – skipping this tick.');
-      return;
+    if (this._isRunning && this._activePromise) {
+      console.log('[CronService] Previous run still in progress – joining existing promise.');
+      return this._activePromise;
     }
 
     this._isRunning = true;
     console.log(`[CronService] ═══ Hourly Run @ ${new Date().toISOString()} ═══`);
 
-    for (const cat of INGEST_CATEGORIES) {
-      await this._runSingleCategory(cat);
-      // Small pause between categories to avoid API rate-limiting
-      await new Promise(r => setTimeout(r, 1200));
-    }
+    this._activePromise = (async () => {
+      try {
+        for (const cat of INGEST_CATEGORIES) {
+          // Respect specific limits: Startup (8), Finance (7), Default (10)
+          let limit = MAX_PER_CAT;
+          if (cat.id === 'startup') limit = 8;
+          if (cat.id === 'finance') limit = 7;
 
-    console.log('[CronService] ═══ Run complete ═══');
-    this._isRunning = false;
+          await this._runSingleCategory(cat, limit);
+          // Small pause between categories to avoid API rate-limiting
+          await new Promise(r => setTimeout(r, 1200));
+        }
+      } finally {
+        console.log('[CronService] ═══ Run complete ═══');
+        this._isRunning = false;
+        this._activePromise = null;
+      }
+    })();
+
+    return this._activePromise;
   }
 
   /** Execute ingestion for one category and update internal status */
-  async _runSingleCategory(cat) {
+  async _runSingleCategory(cat, limit = MAX_PER_CAT) {
     const status = this._jobStatus[cat.id];
     status.isRunning = true;
 
     try {
-      console.log(`[CronService] Ingesting "${cat.name}"…`);
-      const result = await ingestCategoryNews(cat.id, cat.gnewsCategory, MAX_PER_CAT);
+      console.log(`[CronService] Ingesting "${cat.name}" (limit: ${limit})…`);
+      const result = await ingestCategoryNews(cat.id, cat.gnewsCategory, limit);
 
       status.lastRun    = new Date().toISOString();
       status.lastResult = result;

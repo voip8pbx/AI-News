@@ -45,7 +45,7 @@ export default function MagazineGrid({ articles = [], title = "Top Stories" }) {
                         >
                             <div className="relative h-48 overflow-hidden">
                                 <img
-                                    src={article.generatedImage || article.bannerImage || '/assets/img/blog/blog-default-1.jpg'}
+                                    src={article.generatedImage || article.bannerImage || article.ai_image_url || '/assets/img/blog/blog-default-1.jpg'}
                                     alt={article.title}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                     onError={(e) => {
@@ -83,7 +83,7 @@ export default function MagazineGrid({ articles = [], title = "Top Stories" }) {
                         >
                             <div className="relative md:w-1/2 h-48 md:h-64 overflow-hidden">
                                 <img
-                                    src={articles[2].generatedImage || articles[2].bannerImage || '/assets/img/blog/blog-default-1.jpg'}
+                                    src={articles[2].generatedImage || articles[2].bannerImage || articles[2].ai_image_url || '/assets/img/blog/blog-default-1.jpg'}
                                     alt={articles[2].title}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                     onError={(e) => {
@@ -127,29 +127,44 @@ export default function MagazineGrid({ articles = [], title = "Top Stories" }) {
                         >
                             {/* Square Image Background */}
                             <img
-                                src={article.generatedImage || article.bannerImage || '/assets/img/blog/blog-default-1.jpg'}
+                                src={article.generatedImage || article.bannerImage || article.ai_image_url || '/assets/img/blog/blog-default-1.jpg'}
                                 alt={article.title}
                                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                 onError={(e) => {
                                     e.target.src = '/assets/img/blog/blog-default-1.jpg';
                                 }}
                             />
-                            
-                            {/* Gradient Overlay */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                            
-                            {/* Category Badge */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
                             <span className="absolute top-3 left-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full">
                                 {article.categorySlug?.replace(/-/g, ' ') || 'News'}
                             </span>
-                            
-                            {/* Content */}
                             <div className="absolute bottom-0 left-0 right-0 p-4">
                                 <h4 className="font-serif font-bold text-white leading-tight group-hover:text-blue-200 transition-colors text-sm line-clamp-3">
                                     {article.title}
                                 </h4>
                                 <span className="text-white/70 text-xs mt-2 block">
                                     {formatDate(article.createdAt, {
+                                        month: 'short',
+                                        day: 'numeric'
+                                    })}
+                                </span>
+                            </div>
+                        </article>
+                    ))}
+                    
+                    {/* Handle missing articles - show placeholder cards */}
+                    {Array.from({ length: Math.max(0, 4 - articles.slice(3, 7).length) }).map((_, index) => (
+                        <article
+                            key={`placeholder-${index}`}
+                            className="group cursor-pointer relative overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all duration-300 aspect-square bg-white dark:bg-slate-800 opacity-60"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800"></div>
+                            <div className="absolute bottom-0 left-0 right-0 p-4">
+                                <h4 className="font-serif font-bold text-slate-400 dark:text-slate-500 leading-tight text-sm">
+                                    More articles coming soon...
+                                </h4>
+                                <span className="text-slate-400 dark:text-slate-500 text-xs mt-2 block">
+                                    {formatDate(null, {
                                         month: 'short',
                                         day: 'numeric'
                                     })}

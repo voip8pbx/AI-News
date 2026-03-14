@@ -19,6 +19,14 @@ export default defineConfig({
         target: 'https://gnews.io/api/v4',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/gnews/, '')
+      },
+      '/api/newsapi': {
+        target: 'https://newsapi.org/v2',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/newsapi/, ''),
+        headers: {
+          'User-Agent': 'Verbis-AI-News-Crawler/1.0'
+        }
       }
     }
   },

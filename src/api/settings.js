@@ -108,6 +108,22 @@ export const settingsApi = {
     // Sort tops
     topRaw.sort((a, b) => b.views - a.views);
 
+    // Fetch real ingestion rules/schedules
+    const { data: realSchedules } = await supabase
+      .from('schedules')
+      .select('id, category, articles_per_day, count_today, status, last_run')
+      .order('category', { ascending: true });
+
+    const rulesData = (realSchedules || []).map(s => ({
+      _id: s.id,
+      category: s.category,
+      articlesPerDay: s.articles_per_day,
+      countToday: s.count_today || 0,
+      status: s.status,
+      lastSync: s.last_run,
+      percentage: Math.min(100, (s.count_today || 0) / (s.articles_per_day || 1) * 100)
+    }));
+
     // Returning exact payload tree Analytics.jsx expects
     return {
       success: true,
@@ -126,10 +142,8 @@ export const settingsApi = {
           contentWeighting: distribution
         },
         ingestion: {
-          activeRulesCount: 1,
-          rules: [
-            { id: 1, name: "Daily Morning Digest", type: "text", status: "active", schedule: "0 6 * * *", lastSync: new Date().toISOString() }
-          ]
+          activeRulesCount: rulesData.filter(r => r.status === 'active').length,
+          rules: rulesData
         }
       }
     };

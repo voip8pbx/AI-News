@@ -13,9 +13,7 @@ import NewsSection from "../components/ui/NewsSection";
 import TrendingSection from "../components/ui/TrendingSection";
 import Footer from "../components/ui/Footer";
 
-// [AI IMAGE PIPELINE DISABLED] - Using plain article fetches from DB instead
-// import { getArticlesWithGeneratedImages, getArticlesByCategoryWithGeneratedImages, searchArticlesWithGeneratedImages, generateImagesForRecentArticles } from "../api/articles";
-import { getArticles, getArticlesByCategory, searchArticles } from "../api/articles";
+import { getArticles, getArticlesByCategory, searchArticles, getArticlesWithGeneratedImages, getArticlesByCategoryWithGeneratedImages, searchArticlesWithGeneratedImages, generateImagesForRecentArticles } from "../api/articles";
 import { useHomeState } from "../context/HomeStateContext";
 import { getQuickGlanceData } from "../utils/quickGlance";
 import { getUserInteractions } from "../api/auth";
@@ -49,36 +47,35 @@ export default function Home() {
         console.error("[home] Failed to fetch articles from database", err);
       }
 
-      // Fetch Finance category articles
+      // Fetch Finance category articles (requesting 10 to ensure we have a 7-article buffer)
       try {
         console.log("[home] Fetching Finance articles...");
-        const financeRes = await getArticlesByCategory('finance', 1, 7);
+        const financeRes = await getArticlesByCategory('finance', 1, 10);
         console.log("[home] Finance articles fetched:", financeRes);
-        console.log("[home] Finance articles count:", financeRes?.articles?.length);
-        console.log("[home] Finance articles data:", financeRes?.articles);
-        
-        // If no Finance articles found, use general articles as fallback
-        if (financeRes?.articles && financeRes.articles.length > 0) {
-          setFinanceArticles(financeRes.articles);
-        } else {
-          console.log("[home] No Finance articles found, using general articles as fallback");
-          setFinanceArticles(articles.slice(0, 7));
+
+        // Ensure we have exactly 7 articles by padding with general articles if the category is thin
+        let pool = financeRes?.articles || [];
+        if (pool.length < 7) {
+          const extraNeeded = 7 - pool.length;
+          const extra = articles.filter(a => !pool.find(p => p.id === a.id)).slice(0, extraNeeded);
+          pool = [...pool, ...extra];
         }
+        setFinanceArticles(pool);
       } catch (err) {
         console.error("[home] Failed to fetch Finance articles", err);
         // Fallback to general articles
         setFinanceArticles(articles.slice(0, 7));
       }
 
-      // [AI IMAGE PIPELINE DISABLED] - Re-enable below block to restore image generation
-      // try {
-      //   console.log("[home] Starting background image generation...");
-      //   await generateImagesForRecentArticles(20);
-      //   const refreshRes = await getArticlesWithGeneratedImages(1, 15);
-      //   if (refreshRes?.articles) setArticles(refreshRes.articles);
-      // } catch (err) {
-      //   console.warn("[home] Background image generation failed (non-critical)", err);
-      // }
+      // [AI IMAGE PIPELINE ENABLED] - Generate AI images for recent articles
+      try {
+        console.log("[home] Starting background image generation...");
+        await generateImagesForRecentArticles(20);
+        const refreshRes = await getArticlesWithGeneratedImages(1, 15);
+        if (refreshRes?.articles) setArticles(refreshRes.articles);
+      } catch (err) {
+        console.warn("[home] Background image generation failed (non-critical)", err);
+      }
     };
 
     if (articles.length === 0) bootstrap();
@@ -88,12 +85,12 @@ export default function Home() {
   const loadJournal = useCallback(async () => {
     setLoading(true);
     try {
-      // [AI IMAGE PIPELINE DISABLED] Using plain DB fetches
+      // [AI IMAGE PIPELINE ENABLED] Using generated images API
       const fetchApi = isSearchMode && searchQuery.trim()
-        ? searchArticles(searchQuery.trim(), page, 8)
+        ? searchArticlesWithGeneratedImages(searchQuery.trim(), page, 8)
         : (activeCategory && activeCategory !== "All")
-          ? getArticlesByCategory(activeCategory, page, 8)
-          : getArticles(page, 8);
+          ? getArticlesByCategoryWithGeneratedImages(activeCategory, page, 8)
+          : getArticlesWithGeneratedImages(page, 8);
 
       const res = await fetchApi;
 

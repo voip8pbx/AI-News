@@ -28,8 +28,8 @@ export default function MagazineSidebar({ articles = [], categories = [] }) {
     const navigate = useNavigate();
     const { theme } = useTheme();
 
-    const trendingArticles = articles.slice(0, 5);
-    const latestArticles = articles.slice(5, 9);
+    const trendingArticles = articles.slice(0, 3);
+    const latestArticles = articles.slice(3, 8);
 
     const defaultCategories = [
         { name: 'Technology', count: 15, image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=100&h=100&fit=crop' },
@@ -67,7 +67,7 @@ export default function MagazineSidebar({ articles = [], categories = [] }) {
                     Startup Trends
                 </h3>
                 <div className="trending-list">
-                    {trendingArticles.slice(0, 3).map((article, index) => (
+                    {trendingArticles.map((article, index) => (
                         <article
                             key={article._id || article.id || `trending-${index}`}
                             className={`trending-item transition-colors ${

@@ -27,13 +27,18 @@ const GNEWS_KEYS = [
   import.meta.env.VITE_GNEWS_FALLBACK_API_KEY,
   import.meta.env.VITE_GNEWS_TERTIARY_API_KEY,
   import.meta.env.VITE_GNEWS_QUATERNARY_API_KEY,
-  import.meta.env.VITE_GNEWS_QUINARY_API_KEY,
+  import.meta.env.VITE_GNEWS_QUINTARY_API_KEY,
 ].filter(k => k && k.trim() !== '');
+
+const NEWSAPI_KEY = import.meta.env.VITE_NEWS_API_KEY;
+const NEWSAPI_BASE = '/api/newsapi';
 
 // Categories to ingest when doing a full refresh
 export const INGEST_CATEGORIES = [
   { id: 'technology',    name: 'Technology',    gnewsCategory: 'technology' },
   { id: 'business',      name: 'Business',      gnewsCategory: 'business'   },
+  { id: 'startup',       name: 'Startup',       gnewsCategory: 'business'   },
+  { id: 'finance',       name: 'Finance',       gnewsCategory: 'business'   },
   { id: 'world',         name: 'World',         gnewsCategory: 'world'      },
   { id: 'science',       name: 'Science',       gnewsCategory: 'science'    },
   { id: 'health',        name: 'Health',        gnewsCategory: 'health'     },
@@ -74,15 +79,30 @@ async function fetchFromGNews(category = 'general', max = 10) {
 
   for (const apiKey of GNEWS_KEYS) {
     try {
-      const url = new URL(`${GNEWS_BASE}/top-headlines`, window.location.origin);
-      url.searchParams.set('category', category);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      // Use /search for startup/finance to get specific news, otherwise /top-headlines
+      const isSearch = category === 'startup' || category === 'finance';
+      const endpoint = isSearch ? '/search' : '/top-headlines';
+      
+      const url = new URL(`${GNEWS_BASE}${endpoint}`, window.location.origin);
+      
+      if (isSearch) {
+        url.searchParams.set('q', category);
+        url.searchParams.set('sortby', 'publishedAt');
+      } else {
+        url.searchParams.set('category', category);
+      }
+
       url.searchParams.set('lang', 'en');
       url.searchParams.set('max', String(max));
       url.searchParams.set('apikey', apiKey);
 
-      console.log(`[NewsIngestion] Fetching "${category}" with key ${apiKey.slice(0, 6)}...`);
+      console.log(`[NewsIngestion] Fetching ${isSearch ? 'Search' : 'Category'} "${category}" with key ${apiKey.slice(0, 6)}...`);
 
-      const res = await fetch(url.toString(), { timeout: 20000 });
+      const res = await fetch(url.toString(), { signal: controller.signal });
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -94,7 +114,6 @@ async function fetchFromGNews(category = 'general', max = 10) {
       return data.articles || [];
 
     } catch (err) {
-      lastError = err;
       console.warn(`[NewsIngestion] Key failed for "${category}":`, err.message);
       // Only retry on auth/rate-limit errors
       if (err.message && !err.message.startsWith('HTTP 401') && !err.message.startsWith('HTTP 403') && !err.message.startsWith('HTTP 429')) {
@@ -104,6 +123,71 @@ async function fetchFromGNews(category = 'general', max = 10) {
   }
 
   throw lastError || new Error('[NewsIngestion] All GNews API keys failed.');
+}
+
+/**
+ * Fetch articles from NewsAPI.org (integrated as specialized source/fallback)
+ */
+async function fetchFromNewsAPI(category = 'general', max = 10) {
+  if (!NEWSAPI_KEY) {
+    console.warn('[NewsIngestion] NewsAPI.org key not found, skipping fallback.');
+    return [];
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+    const url = new URL(`${NEWSAPI_BASE}/top-headlines`, window.location.origin);
+    
+    // Always include country=in as per user's specific request
+    url.searchParams.set('country', 'in');
+    
+    // Handle category/search
+    if (category === 'startup' || category === 'finance') {
+        url.searchParams.set('q', category);
+    } else if (category !== 'general') {
+        url.searchParams.set('category', category);
+    }
+    
+    url.searchParams.set('pageSize', String(max));
+    url.searchParams.set('apiKey', NEWSAPI_KEY);
+
+    console.log(`[NewsIngestion] Fallback: Fetching NewsAPI.org "${category}" (country: in)...`);
+
+    const res = await fetch(url.toString(), { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const errorMsg = `NewsAPI Error ${res.status}: ${err.message || res.statusText}`;
+      console.error(`[NewsIngestion] NewsAPI failed: ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+
+    const data = await res.json();
+    
+    // Normalize NewsAPI.org structure to GNews structure
+    const normalized = (data.articles || []).map(a => ({
+      title: a.title,
+      description: a.description,
+      content: a.content,
+      url: a.url,
+      image: a.urlToImage,
+      publishedAt: a.publishedAt,
+      source: {
+        name: a.source?.name || 'NewsAPI',
+        url: a.url
+      }
+    }));
+
+    console.log(`[NewsIngestion] Successfully got ${normalized.length} articles from NewsAPI.org for "${category}"`);
+    return normalized;
+
+  } catch (err) {
+    console.warn('[NewsIngestion] NewsAPI.org fallback failed:', err.message);
+    return [];
+  }
 }
 
 /**
@@ -217,9 +301,16 @@ export async function ingestCategoryNews(categorySlug, gnewsCategory, maxArticle
   console.log(`[NewsIngestion] ── Starting ingestion for: ${categorySlug} ──`);
 
   try {
-    // Step 1: Fetch from API
-    const rawArticles = await fetchFromGNews(gnewsCategory || categorySlug, maxArticles);
-    if (!rawArticles.length) {
+    // Step 1: Fetch from API (Try GNews first, then NewsAPI as fallback)
+    let rawArticles = [];
+    try {
+        rawArticles = await fetchFromGNews(gnewsCategory || categorySlug, maxArticles);
+    } catch (err) {
+        console.log(`[NewsIngestion] GNews failed for ${categorySlug}, trying NewsAPI.org...`);
+        rawArticles = await fetchFromNewsAPI(categorySlug, maxArticles);
+    }
+
+    if (!rawArticles || !rawArticles.length) {
       return { success: true, fetched: 0, inserted: 0, skipped: 0, errors: [] };
     }
 
@@ -238,6 +329,31 @@ export async function ingestCategoryNews(categorySlug, gnewsCategory, maxArticle
 
     // Step 3: Insert into database
     const insertResult = await insertArticles(newArticles, categorySlug);
+
+    // Step 4: Update counters in the schedules table
+    if (insertResult.inserted > 0) {
+      try {
+        const { data: schedule } = await supabase
+          .from('schedules')
+          .select('count_today')
+          .eq('category', categorySlug)
+          .single();
+
+        const currentCount = schedule?.count_today || 0;
+        
+        await supabase
+          .from('schedules')
+          .update({
+            count_today: currentCount + insertResult.inserted,
+            last_run: new Date().toISOString()
+          })
+          .eq('category', categorySlug);
+          
+        console.log(`[NewsIngestion] Updated counters for ${categorySlug}: +${insertResult.inserted}`);
+      } catch (countErr) {
+        console.warn(`[NewsIngestion] Failed to update counters for ${categorySlug}:`, countErr.message);
+      }
+    }
 
     const summary = {
       success:  insertResult.errors.length === 0,

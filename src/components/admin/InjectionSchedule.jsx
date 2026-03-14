@@ -28,31 +28,44 @@ const InjectionSchedule = () => {
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState(null);
 
   const fetchRules = async () => {
     try {
       setLoading(true);
       const res = await getActiveSchedules();
-      setRules(Array.isArray(res) ? res : res.data || []);
+      // Resort by category name for stability
+      const sorted = (Array.isArray(res) ? res : res.data || [])
+        .sort((a, b) => a.category.localeCompare(b.category));
+      setRules(sorted);
     } catch (err) {
       console.error("Failed to sync rules", err);
     } finally {
       setLoading(false);
     }
   };
-
   useEffect(() => { fetchRules(); }, []);
 
   const handleDeleteRule = async (id) => {
-    if (!window.confirm("Terminate this automated pipeline?")) return;
+    if (!window.confirm("Terminate this automated pipeline? This action cannot be undone.")) return;
     try {
       await deleteSchedule(id);
-      // Remove from cron jobs
       removeScheduleFromCron(id);
       setRules(prev => prev.filter(r => r._id !== id));
     } catch (err) {
+      console.error("Deletion failed:", err);
       alert("Termination failed");
     }
+  };
+
+  const handleEditRule = (rule) => {
+    setEditingRule(rule);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingRule(null);
   };
 
   return (
@@ -100,74 +113,121 @@ const InjectionSchedule = () => {
             <p className="font-black uppercase tracking-[0.3em] text-xs">System Idle</p>
             <p className="text-[10px] uppercase mt-2 font-bold tracking-tighter opacity-60">No active pipelines detected.</p>
           </div>
-        ) : rules.map((rule) => (
-          <div
-            key={rule._id}
-            className="bg-paper border border-border p-6 md:p-8 rounded-4xl md:rounded-[2.5rem] flex flex-col group relative hover:border-accent hover:shadow-xl transition-all duration-500"
-          >
-            {/* Header Area */}
-            <div className="flex justify-between items-start mb-6 md:mb-10">
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <Layers size={12} className="text-accent shrink-0" />
-                  <span className="text-[9px] md:text-[10px] font-black text-accent uppercase tracking-widest italic truncate">Live Stream</span>
-                </div>
-                <h4 className="font-black text-ink text-xl md:text-2xl uppercase tracking-tighter leading-tight italic truncate">
-                  {rule.category}
-                </h4>
-              </div>
-              <button
-                onClick={() => handleDeleteRule(rule._id)}
-                className="p-2 md:p-3 rounded-lg md:rounded-xl bg-surface text-muted/30 hover:text-red-500 hover:bg-red-500/10 transition-all active:scale-90 shrink-0"
-              >
-                <Trash2 size={16} md:size={18} />
-              </button>
-            </div>
+        ) : rules.map((rule) => {
+          const completionPercentage = Math.min(100, (rule.countToday / rule.articlesPerDay) * 100);
+          const isRuleComplete = completionPercentage >= 100;
 
-            {/* Metrics Grid */}
-            <div className="grid grid-cols-2 gap-3 md:gap-4">
-              <div className="bg-surface rounded-xl md:rounded-2xl p-4 md:p-5 border border-border/50">
-                <p className="text-[8px] md:text-[9px] font-black text-muted uppercase mb-1 md:mb-2 tracking-widest">Articles/Day</p>
-                <p className="font-black text-ink text-xl md:text-2xl font-mono">{rule.articlesPerDay}</p>
-              </div>
-              <div className="bg-surface rounded-xl md:rounded-2xl p-4 md:p-5 border border-border/50">
-                <p className="text-[8px] md:text-[9px] font-black text-muted uppercase mb-1 md:mb-2 tracking-widest">Duration</p>
-                <div className="flex items-center gap-2">
-                  {rule.daysRemaining > 5000 ? (
-                    <span className="text-[10px] md:text-[11px] font-black text-green-500 uppercase flex items-center gap-1 font-mono">
-                      <Infinity size={12} /> Inf
-                    </span>
-                  ) : (
-                    <span className="text-[10px] md:text-[11px] font-black text-ink uppercase font-mono">
-                      {rule.daysRemaining}<span className="text-muted text-[8px] ml-1">D</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+          return (
+            <div
+              key={rule._id}
+              className="bg-paper border border-border p-6 md:p-8 rounded-4xl md:rounded-[2.5rem] flex flex-col group relative hover:border-accent hover:shadow-xl transition-all duration-500 overflow-hidden"
+            >
+              {/* Progress Background Hint */}
+              <div 
+                className={`absolute top-0 left-0 h-1 transition-all duration-1000 ${isRuleComplete ? 'bg-green-500' : 'bg-accent'}`}
+                style={{ width: `${completionPercentage}%` }}
+              />
 
-            {/* Footer Logic */}
-            <div className="mt-6 md:mt-10 pt-4 md:pt-6 border-t border-border/50 flex items-center justify-between">
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-green-500"></span>
+              {/* Header Area */}
+              <div className="flex justify-between items-start mb-6 md:mb-10">
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Layers size={12} className={isRuleComplete ? 'text-green-500' : 'text-accent'} />
+                    <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest italic truncate ${isRuleComplete ? 'text-green-500' : 'text-accent'}`}>
+                      {rule.interval?.toUpperCase() || 'HOURLY'} SYNC
+                    </span>
+                  </div>
+                  <h4 className="font-black text-ink text-xl md:text-2xl uppercase tracking-tighter leading-tight italic truncate">
+                    {rule.category}
+                  </h4>
                 </div>
-                <span className="text-[8px] md:text-[9px] font-black text-muted uppercase tracking-[0.2em]">Live</span>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => handleEditRule(rule)}
+                    className="p-2 md:p-3 rounded-lg md:rounded-xl bg-surface text-muted/30 hover:text-accent hover:bg-accent/10 transition-all active:scale-90"
+                  >
+                    <RefreshCw size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteRule(rule._id)}
+                    className="p-2 md:p-3 rounded-lg md:rounded-xl bg-surface text-muted/30 hover:text-red-500 hover:bg-red-500/10 transition-all active:scale-90"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
-              <p className="text-[8px] md:text-[9px] text-muted/30 font-mono font-bold uppercase tracking-tighter group-hover:text-accent transition-colors truncate max-w-20">
-                ID:{rule._id.slice(-6)}
-              </p>
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6">
+                <div className="bg-surface rounded-xl md:rounded-2xl p-4 md:p-5 border border-border/50">
+                  <p className="text-[8px] md:text-[9px] font-black text-muted uppercase mb-1 md:mb-2 tracking-widest">Yield / Limit</p>
+                  <div className="flex items-baseline gap-1">
+                    <p className="font-black text-ink text-xl md:text-2xl font-mono">{rule.countToday || 0}</p>
+                    <p className="text-muted text-[10px] font-black font-mono">/ {rule.articlesPerDay}</p>
+                  </div>
+                </div>
+                <div className="bg-surface rounded-xl md:rounded-2xl p-4 md:p-5 border border-border/50">
+                  <p className="text-[8px] md:text-[9px] font-black text-muted uppercase mb-1 md:mb-2 tracking-widest">Operational Life</p>
+                  <div className="flex items-center gap-2">
+                    {rule.daysRemaining > 5000 ? (
+                      <span className="text-[10px] md:text-[11px] font-black text-green-500 uppercase flex items-center gap-1 font-mono leading-none">
+                        <Infinity size={12} className="mt-0.5" /> Inf
+                      </span>
+                    ) : (
+                      <span className="text-[10px] md:text-[11px] font-black text-ink uppercase font-mono">
+                        {rule.daysRemaining}<span className="text-muted text-[8px] ml-1 uppercase">Days</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress Bar Label */}
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[8px] font-bold text-muted uppercase tracking-wider">Quota Consumed</span>
+                <span className={`text-[9px] font-black font-mono ${isRuleComplete ? 'text-green-500' : 'text-accent'}`}>
+                  {Math.round(completionPercentage)}%
+                </span>
+              </div>
+              <div className="w-full h-1 bg-surface rounded-full overflow-hidden mb-6">
+                <div 
+                  className={`h-full transition-all duration-1000 ease-out ${isRuleComplete ? 'bg-green-500' : 'bg-accent'}`}
+                  style={{ width: `${completionPercentage}%` }}
+                />
+              </div>
+
+              {/* Footer Logic */}
+              <div className="mt-auto pt-4 md:pt-6 border-t border-border/50 flex items-center justify-between">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className="relative flex h-2 w-2">
+                    {isRuleComplete ? (
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-green-500"></span>
+                    ) : (
+                      <>
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent/40 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 md:h-2 md:w-2 bg-accent"></span>
+                      </>
+                    )}
+                  </div>
+                  <span className={`text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] ${isRuleComplete ? 'text-green-500' : 'text-muted'}`}>
+                    {isRuleComplete ? 'Quota Reached' : 'Collecting'}
+                  </span>
+                </div>
+                <p className="text-[8px] md:text-[9px] text-muted/30 font-mono font-bold uppercase tracking-tighter group-hover:text-accent transition-colors truncate max-w-20">
+                  ID:{rule._id.slice(-6)}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Modal - Ensure the CreateScheduleModal is also reskinned to Studio v4 */}
+      {/* Modal - Create or Edit */}
       {isModalOpen && (
         <CreateScheduleModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          initialData={editingRule}
+          onClose={handleCloseModal}
           onRefresh={fetchRules}
         />
       )}
@@ -176,20 +236,35 @@ const InjectionSchedule = () => {
 };
 
 
-const CreateScheduleModal = ({ isOpen, onClose, onRefresh }) => {
+const CreateScheduleModal = ({ isOpen, onClose, onRefresh, initialData }) => {
   const [availableSilos, setAvailableSilos] = useState([]);
-  const [isInfinite, setIsInfinite] = useState(false);
+  const [isInfinite, setIsInfinite] = useState(initialData ? initialData.daysRemaining >= 5000 : false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    category: '',
-    articlesPerDay: 10,
-    daysRemaining: 7
+    category: initialData?.category || '',
+    articlesPerDay: initialData?.articlesPerDay || 10,
+    daysRemaining: initialData?.daysRemaining || 7
   });
 
-  // Load Silos when opening
+  // Load Categories when opening
   useEffect(() => {
     if (isOpen) {
+      if (initialData) {
+        setFormData({
+          category: initialData.category,
+          articlesPerDay: initialData.articlesPerDay,
+          daysRemaining: initialData.daysRemaining
+        });
+        setIsInfinite(initialData.daysRemaining >= 5000);
+      } else {
+        setFormData({
+            category: '',
+            articlesPerDay: 10,
+            daysRemaining: 7
+        });
+        setIsInfinite(false);
+      }
       const fetchSilos = async () => {
         try {
           const res = await getCategories();
@@ -216,13 +291,23 @@ const CreateScheduleModal = ({ isOpen, onClose, onRefresh }) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const newSchedule = await createSchedule(formData);
-      // Add to cron jobs
-      await addScheduleToCron(newSchedule);
+      if (initialData) {
+        // Mode: EDIT
+        const updated = await updateSchedule(initialData._id, formData);
+        // Sync with local cron job engine
+        updateScheduleInCron(updated);
+      } else {
+        // Mode: CREATE
+        const newSchedule = await createSchedule(formData);
+        // Add to cron jobs
+        await addScheduleToCron(newSchedule);
+      }
+      
       onRefresh();
       onClose();
     } catch (err) {
-      alert("Failed to start automation");
+      console.error("Automation error:", err);
+      alert(initialData ? "Update failed" : "Failed to start automation");
     } finally {
       setIsSubmitting(false);
     }
@@ -238,9 +323,11 @@ const CreateScheduleModal = ({ isOpen, onClose, onRefresh }) => {
         <div className="p-6 md:p-8 border-b border-border flex justify-between items-center bg-surface/50">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-accent rounded-lg text-white">
-              <Target size={18} />
+              {initialData ? <RefreshCw size={18} /> : <Target size={18} />}
             </div>
-            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-ink">Pipeline Configuration</h3>
+            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-ink">
+                {initialData ? 'Re-Syncing Neural Path' : 'Pipeline Configuration'}
+            </h3>
           </div>
           <button
             type="button"
@@ -254,23 +341,23 @@ const CreateScheduleModal = ({ isOpen, onClose, onRefresh }) => {
         <form onSubmit={handleSubmit}>
           <div className="p-8 md:p-10 space-y-8">
 
-            {/* 2. TARGET SELECTION */}
             <div className="space-y-3">
               <label className="text-[10px] font-black text-muted uppercase tracking-[0.3em] ml-1">Target Category</label>
               <div className="relative group">
                 <select
                   required
+                  disabled={!!initialData}
                   value={formData.category}
                   onChange={e => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full bg-surface border border-border rounded-2xl p-5 font-black text-[11px] uppercase tracking-widest text-ink outline-none cursor-pointer appearance-none focus:ring-4 focus:ring-accent/10 focus:border-accent transition-all"
+                  className="w-full bg-surface border border-border rounded-2xl p-5 font-black text-[11px] uppercase tracking-widest text-ink outline-none cursor-pointer appearance-none focus:ring-4 focus:ring-accent/10 focus:border-accent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="" disabled className="text-muted">Select Target...</option>
                   {availableSilos.map(silo => (
-                    <option key={silo._id} value={silo.name}>{silo.name}</option>
+                    <option key={silo._id || silo.slug} value={silo.name}>{silo.name}</option>
                   ))}
                 </select>
                 <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-accent">
-                  <Globe size={18} />
+                  {initialData ? <X size={18} className="opacity-0" /> : <Globe size={18} />}
                 </div>
               </div>
             </div>
@@ -402,7 +489,7 @@ const CreateScheduleModal = ({ isOpen, onClose, onRefresh }) => {
               ) : (
                 <Zap size={18} className={isSubmitting ? '' : 'fill-current'} />
               )}
-              {isSubmitting ? "Initializing Pipeline..." : "Launch Automation"}
+              {isSubmitting ? "Initializing Pipeline..." : initialData ? "Commit Updates" : "Launch Automation"}
             </button>
           </div>
         </form>

@@ -108,7 +108,7 @@ export default function ArticleCard({ article, onUpdate, variant = "grid" }) {
     return () => {
       isMounted = false;
     };
-  }, [article?._id, article?.title]);
+  }, [article?._id, article?.title, displayImage]);
 
   // HOME-ONLY LOGIC: Filter for top-level comments and take only the latest 2
   const previewComments = (article.comments || [])

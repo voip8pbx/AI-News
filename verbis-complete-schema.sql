@@ -284,30 +284,65 @@ ALTER TABLE schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cron_execution_logs ENABLE ROW LEVEL SECURITY;
 
 -- Users table policies
+DROP POLICY IF EXISTS "Users can view all profiles" ON users;
 CREATE POLICY "Users can view all profiles" ON users FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
 CREATE POLICY "Users can update own profile" ON users FOR UPDATE USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can insert own profile" ON users;
 CREATE POLICY "Users can insert own profile" ON users FOR INSERT WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Admins can manage all users" ON users;
 CREATE POLICY "Admins can manage all users" ON users FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
 
 -- Articles table policies
+DROP POLICY IF EXISTS "Anyone can view published articles" ON articles;
 CREATE POLICY "Anyone can view published articles" ON articles FOR SELECT USING (status = 'published');
+
+DROP POLICY IF EXISTS "Allow public inserts for news crawler" ON articles;
+CREATE POLICY "Allow public inserts for news crawler" ON articles FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admins can manage all articles" ON articles;
 CREATE POLICY "Admins can manage all articles" ON articles FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
+
+DROP POLICY IF EXISTS "Editors can manage articles" ON articles;
 CREATE POLICY "Editors can manage articles" ON articles FOR ALL USING (auth.jwt() ->> 'role' IN ('admin', 'editor'));
 
 -- Categories table policies
+DROP POLICY IF EXISTS "Anyone can view active categories" ON categories;
 CREATE POLICY "Anyone can view active categories" ON categories FOR SELECT USING (is_active = true);
+
+DROP POLICY IF EXISTS "Admins can manage categories" ON categories;
 CREATE POLICY "Admins can manage categories" ON categories FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
 
 -- Saved articles policies
+DROP POLICY IF EXISTS "Users can manage own saved articles" ON saved_articles;
 CREATE POLICY "Users can manage own saved articles" ON saved_articles FOR ALL USING (auth.uid() = user_id);
 
 -- Liked articles policies
+DROP POLICY IF EXISTS "Users can manage own liked articles" ON liked_articles;
 CREATE POLICY "Users can manage own liked articles" ON liked_articles FOR ALL USING (auth.uid() = user_id);
 
 -- Comments policies
+DROP POLICY IF EXISTS "Anyone can view published comments" ON comments;
 CREATE POLICY "Anyone can view published comments" ON comments FOR SELECT USING (status = 'published');
+
+DROP POLICY IF EXISTS "Users can manage own comments" ON comments;
 CREATE POLICY "Users can manage own comments" ON comments FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins can manage all comments" ON comments;
 CREATE POLICY "Admins can manage all comments" ON comments FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
+
+-- News images policies
+DROP POLICY IF EXISTS "Anyone can view images" ON news_images;
+CREATE POLICY "Anyone can view images" ON news_images FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public inserts for images" ON news_images;
+CREATE POLICY "Allow public inserts for images" ON news_images FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Admins can manage images" ON news_images;
+CREATE POLICY "Admins can manage images" ON news_images FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
 
 -- =====================================================
 -- 16. TRIGGERS AND FUNCTIONS
@@ -323,11 +358,22 @@ END;
 $$ language 'plpgsql';
 
 -- Apply updated_at trigger to relevant tables
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_categories_updated_at ON categories;
 CREATE TRIGGER update_categories_updated_at BEFORE UPDATE ON categories FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_articles_updated_at ON articles;
 CREATE TRIGGER update_articles_updated_at BEFORE UPDATE ON articles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_settings_updated_at ON settings;
 CREATE TRIGGER update_settings_updated_at BEFORE UPDATE ON settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_news_images_updated_at ON news_images;
 CREATE TRIGGER update_news_images_updated_at BEFORE UPDATE ON news_images FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_schedules_updated_at ON schedules;
 CREATE TRIGGER update_schedules_updated_at BEFORE UPDATE ON schedules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Function to increment article views
@@ -340,6 +386,7 @@ END;
 $$ language 'plpgsql';
 
 -- Trigger for article views
+DROP TRIGGER IF EXISTS increment_article_views_trigger ON article_views;
 CREATE TRIGGER increment_article_views_trigger AFTER INSERT ON article_views FOR EACH ROW EXECUTE FUNCTION increment_article_views();
 
 -- =====================================================
@@ -401,6 +448,34 @@ SELECT
 FROM articles
 WHERE status = 'published' AND ai_image_status = 'completed'
 ORDER BY published_at DESC;
+
+-- =====================================================
+-- 17.5 CONSTRAINT ENSURANCE (Repair for existing tables)
+-- =====================================================
+-- This section ensures required unique constraints exist before data insertion.
+-- Run this if you get "no unique constraint matching ON CONFLICT" errors.
+
+DO $$ BEGIN
+    -- 1. Ensure settings has a primary key on 'id'
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE table_name='settings' AND constraint_type='PRIMARY KEY') THEN
+        ALTER TABLE settings ADD PRIMARY KEY (id);
+    END IF;
+
+    -- 2. Ensure categories has a unique constraint on 'slug'
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE table_name='categories' AND (constraint_name='categories_slug_key' OR constraint_type='UNIQUE')) THEN
+        ALTER TABLE categories ADD CONSTRAINT categories_slug_key UNIQUE (slug);
+    END IF;
+
+    -- 3. Ensure articles has a unique constraint on 'url'
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE table_name='articles' AND (constraint_name='articles_url_key' OR constraint_type='UNIQUE')) THEN
+        ALTER TABLE articles ADD CONSTRAINT articles_url_key UNIQUE (url);
+    END IF;
+
+    -- 4. Ensure schedules has a unique constraint on 'category'
+    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE table_name='schedules' AND (constraint_name='schedules_category_key' OR constraint_type='UNIQUE')) THEN
+        ALTER TABLE schedules ADD CONSTRAINT schedules_category_key UNIQUE (category);
+    END IF;
+END $$;
 
 -- =====================================================
 -- 18. INITIAL DATA SETUP
@@ -516,6 +591,66 @@ INSERT INTO articles (
     'published',
     'https://picsum.photos/seed/startup3/800/400',
     'completed'
+),
+(
+    'FinTech Startup Simplifies Global Payments',
+    'fintech-startup-simplifies-global-payments',
+    'A new FinTech startup is making it easier than ever for businesses to send and receive international payments.',
+    'A new FinTech startup is making it easier than ever for businesses to send and receive international payments with low fees and instant processing. The platform uses blockchain technology to ensure security and transparency.',
+    'https://example.com/fintech-startup-payments',
+    'Startup',
+    'startup',
+    'Finance News',
+    'https://example.com',
+    NOW() - INTERVAL '5 days',
+    'published',
+    'https://picsum.photos/seed/startup4/800/400',
+    'completed'
+),
+(
+    'Social Impact Startup Wins Global Innovation Award',
+    'social-impact-startup-wins-award',
+    'A social impact startup that provides clean water solutions has won a prestigious global innovation award.',
+    'A social impact startup that provides clean water solutions to remote communities has been recognized with a prestigious global innovation award. The company''s low-cost filtration technology has already helped thousands of people.',
+    'https://example.com/social-startup-award',
+    'Startup',
+    'startup',
+    'Global Impact',
+    'https://example.com',
+    NOW() - INTERVAL '6 days',
+    'published',
+    'https://picsum.photos/seed/startup5/800/400',
+    'completed'
+),
+(
+    'Startup Hub Expands to Emerging Markets in Southeast Asia',
+    'startup-hub-expands-southeast-asia',
+    'A major startup hub is expanding its network to support founders in emerging Southeast Asian economies.',
+    'A major startup hub is expanding its network to support founders in emerging Southeast Asian economies. The initiative will provide resources, networking, and mentorship to help local entrepreneurs scale their businesses globally.',
+    'https://example.com/startup-hub-asia',
+    'Startup',
+    'startup',
+    'Market Expansion',
+    'https://example.com',
+    NOW() - INTERVAL '7 days',
+    'published',
+    'https://picsum.photos/seed/startup6/800/400',
+    'completed'
+),
+(
+    'HealthTech Startup Revolutionizes Remote Patient Monitoring',
+    'healthtech-startup-patient-monitoring',
+    'An innovative HealthTech startup has launched advanced sensors for real-time remote patient monitoring.',
+    'An innovative HealthTech startup has launched advanced sensors for real-time remote patient monitoring. The device allows doctors to track vital signs instantly, improving care for patients in rural areas.',
+    'https://example.com/healthtech-monitoring',
+    'Startup',
+    'startup',
+    'Medical Innovation',
+    'https://example.com',
+    NOW() - INTERVAL '8 days',
+    'published',
+    'https://picsum.photos/seed/startup7/800/400',
+    'completed'
 )
 ON CONFLICT (url) DO NOTHING;
 
@@ -553,14 +688,74 @@ INSERT INTO articles (
     'published',
     'https://picsum.photos/seed/finance2/800/400',
     'completed'
+),
+(
+    'Global Trade Dynamics Shift Amid New Policy Frameworks',
+    'global-trade-dynamics-shift',
+    'International trade routes and agreements are undergoing significant transformations following new regulatory updates.',
+    'International trade routes and agreements are undergoing significant transformations following new regulatory updates. Analysts suggest that these changes could reshape global supply chains for the next decade.',
+    'https://example.com/global-trade-shift',
+    'Finance',
+    'finance',
+    'Trade Journal',
+    'https://example.com',
+    NOW() - INTERVAL '3 days',
+    'published',
+    'https://picsum.photos/seed/finance3/800/400',
+    'completed'
+),
+(
+    'Cryptocurrency Regulations Evolve as Adoption Grows',
+    'crypto-regulations-evolve',
+    'Governments around the world are drafting new rules to keep pace with the rapid growth of digital assets.',
+    'Governments around the world are drafting new rules to keep pace with the rapid growth of digital assets. The move aims to provide clarity for investors and ensure financial stability in the evolving market.',
+    'https://example.com/crypto-regs',
+    'Finance',
+    'finance',
+    'Crypto Daily',
+    'https://example.com',
+    NOW() - INTERVAL '4 days',
+    'published',
+    'https://picsum.photos/seed/finance4/800/400',
+    'completed'
+),
+(
+    'Sustainable Investing Becomes Mainstream for Global Funds',
+    'sustainable-investing-mainstream',
+    'Major investment houses are shifting focus towards ESG criteria as more capital flows into sustainable projects.',
+    'Major investment houses are shifting focus towards ESG criteria as more capital flows into sustainable projects. This shift reflects a growing demand from institutional investors for long-term environmental value.',
+    'https://example.com/sustainable-investing',
+    'Finance',
+    'finance',
+    'ESG Investor',
+    'https://example.com',
+    NOW() - INTERVAL '5 days',
+    'published',
+    'https://picsum.photos/seed/finance5/800/400',
+    'completed'
+),
+(
+    'Real Estate Market Shows Resilience Amid Economic Winds',
+    'real-estate-resilience',
+    'Despite interest rate fluctuations, the real estate sector continues to show surprising strength and demand.',
+    'Despite interest rate fluctuations, the real estate sector continues to show surprising strength and demand. Urban property values remain stable while suburban growth continues to accelerate in key regions.',
+    'https://example.com/real-estate-strength',
+    'Finance',
+    'finance',
+    'Property Times',
+    'https://example.com',
+    NOW() - INTERVAL '6 days',
+    'published',
+    'https://picsum.photos/seed/finance6/800/400',
+    'completed'
 )
 ON CONFLICT (url) DO NOTHING;
 
 -- Insert ingestion schedules
 INSERT INTO schedules (category, articles_per_day, days_remaining, status, interval) VALUES 
-('startup', 5, 9999, 'active', 'hourly'),
+('startup', 8, 9999, 'active', 'hourly'),
 ('business', 5, 9999, 'active', 'hourly'),
-('finance', 8, 9999, 'active', 'hourly'),
+('finance', 7, 9999, 'active', 'hourly'),
 ('technology', 10, 9999, 'active', 'hourly'),
 ('world', 10, 9999, 'active', 'hourly')
 ON CONFLICT (category) DO UPDATE SET
