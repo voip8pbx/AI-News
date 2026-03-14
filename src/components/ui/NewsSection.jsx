@@ -265,7 +265,7 @@ export default function NewsSection() {
 
     // Fetch news data with fallback to Supabase
 
-    // Fetch news data from Supabase (Ingestion is handled by background CronService)
+    // Fetch news data from Supabase (Articles are stored via the manual /fetch-news panel)
     const fetchNews = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -278,17 +278,23 @@ export default function NewsSection() {
             const supabaseResult = await getArticlesByCategory(categorySlug, 1, 6);
             
             // Map the articles to the format expected by the UI
+            // Supports both manually-ingested articles (description/content fields)
+            // and AI-rewritten articles (summary/ai_content fields)
             const transformedArticles = (supabaseResult.articles || []).map(article => ({
                 id: article.id,
                 title: article.title,
-                description: article.summary || (article.ai_content ? article.ai_content.substring(0, 160) + '...' : ''),
-                content: article.ai_content,
+                description: article.description
+                  || article.summary
+                  || (article.ai_content ? article.ai_content.substring(0, 200) + '...' : ''),
+                content: article.content || article.ai_content || '',
                 url: article.url,
                 image: article.bannerImage || article.banner_image,
-                publishedAt: article.publishedAt,
-                source: article.source?.name || article.source_name || 'Global News',
+                publishedAt: article.publishedAt || article.published_at,
+                source: article.source?.name || article.source_name || 'GNews',
                 sourceUrl: article.source?.url || article.source_url,
                 category: categorySlug,
+                slug: article.slug,
+                categorySlug: article.categorySlug || article.category_slug || categorySlug,
             }));
 
             setNewsData(prev => ({
@@ -299,7 +305,10 @@ export default function NewsSection() {
 
         } catch (err) {
             console.error('[NewsSection] Failed to load articles from Supabase:', err);
-            setError('No articles found in database yet. The AI is currently generating news, please check back in a minute.');
+            setError(
+                'No articles found for this category yet. ' +
+                'Go to /fetch-news to manually fetch and store articles from the News API.'
+            );
         } finally {
             setLoading(false);
         }

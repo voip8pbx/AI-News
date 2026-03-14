@@ -12,24 +12,28 @@ const SettingsForm = ({ currentSettings, onUpdate }) => {
   useEffect(() => {
     if (currentSettings) {
       if (currentSettings.cronSchedule) {
-        const intervalPart = currentSettings.cronSchedule.split('/')[1];
-        const minutes = intervalPart ? parseInt(intervalPart.split(' ')[0]) : 30;
-        setIntervalValue(minutes);
+        // Handle both "*/30 * * * *" and raw numbers
+        let mins = 60;
+        if (typeof currentSettings.cronSchedule === 'string' && currentSettings.cronSchedule.includes('*/')) {
+          mins = parseInt(currentSettings.cronSchedule.split('*/')[1]) || 60;
+        } else {
+          mins = parseInt(currentSettings.cronSchedule) || 60;
+        }
+        setIntervalValue(mins);
       }
       if (currentSettings.articleExpiryDays) {
         setExpiry(currentSettings.articleExpiryDays);
       }
     }
   }, [currentSettings]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage({ type: "", text: "" });
 
     try {
-      const res = await settingsApi.cronShedule({
-        intervalMinutes: Number(interval),
+      const res = await settingsApi.updateCronSchedule({
+        cronSchedule: String(interval),
         articleExpiryDays: Number(expiry)
       });
 

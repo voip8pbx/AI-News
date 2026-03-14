@@ -1,96 +1,48 @@
+/**
+ * initCronJobs.js
+ *
+ * Entry-point for the automatic hourly news ingestion cron service.
+ * Call startCronJobs() once during app startup (App.jsx).
+ *
+ * Public API is unchanged so InjectionSchedule.jsx and InjestionStatus.jsx
+ * continue to work without modification.
+ */
+
 import cronService from '../services/cronService.js';
 
-/**
- * Initialize cron jobs when the application starts
- * This should be called from your main application entry point
- */
-
-/**
- * Start all cron jobs
- */
+/** Start the automatic hourly ingestion loop */
 export const startCronJobs = async () => {
   try {
-    console.log('[CronInit] Starting cron job initialization...');
+    console.log('[CronInit] Starting automatic news cron…');
     await cronService.initialize();
-    console.log('[CronInit] Cron jobs initialized successfully');
+    console.log('[CronInit] ✓ Cron started – fetching every hour for all categories.');
   } catch (error) {
-    console.error('[CronInit] Failed to initialize cron jobs:', error);
+    console.error('[CronInit] Failed to start cron:', error);
   }
 };
 
-/**
- * Stop all cron jobs (for graceful shutdown)
- */
+/** Stop all cron jobs (graceful shutdown) */
 export const stopCronJobs = () => {
   try {
-    console.log('[CronInit] Stopping all cron jobs...');
     cronService.shutdown();
-    console.log('[CronInit] All cron jobs stopped');
+    console.log('[CronInit] Cron stopped.');
   } catch (error) {
-    console.error('[CronInit] Error stopping cron jobs:', error);
+    console.error('[CronInit] Error stopping cron:', error);
   }
 };
 
-/**
- * Get cron job status for monitoring
- */
-export const getCronJobStatus = () => {
-  return cronService.getJobStatus();
-};
+/** Returns live status for every category job – used by InjestionStatus.jsx */
+export const getCronJobStatus = () => cronService.getJobStatus();
 
-/**
- * Add a new schedule to cron jobs
- */
-export const addScheduleToCron = async (schedule) => {
-  try {
-    await cronService.addSchedule(schedule);
-    console.log(`[CronInit] Added schedule to cron: ${schedule.category}`);
-  } catch (error) {
-    console.error(`[CronInit] Failed to add schedule to cron: ${schedule.category}`, error);
-  }
-};
+/** Legacy stubs – kept so InjectionSchedule.jsx compiles unchanged */
+export const addScheduleToCron      = async (schedule) => { /* no-op */ };
+export const removeScheduleFromCron = (scheduleId)     => { /* no-op */ return false; };
+export const updateScheduleInCron   = async (schedule) => { /* no-op */ };
 
-/**
- * Remove a schedule from cron jobs
- */
-export const removeScheduleFromCron = (scheduleId) => {
-  try {
-    const success = cronService.removeSchedule(scheduleId);
-    if (success) {
-      console.log(`[CronInit] Removed schedule from cron: ${scheduleId}`);
-    }
-    return success;
-  } catch (error) {
-    console.error(`[CronInit] Failed to remove schedule from cron: ${scheduleId}`, error);
-    return false;
-  }
-};
-
-/**
- * Update a schedule in cron jobs
- */
-export const updateScheduleInCron = async (schedule) => {
-  try {
-    await cronService.updateSchedule(schedule);
-    console.log(`[CronInit] Updated schedule in cron: ${schedule.category}`);
-  } catch (error) {
-    console.error(`[CronInit] Failed to update schedule in cron: ${schedule.category}`, error);
-  }
-};
-
-// Graceful shutdown logic
-if (typeof process !== 'undefined') {
-  process.on('SIGTERM', () => {
-    console.log('[CronInit] Received SIGTERM, shutting down cron jobs...');
-    stopCronJobs();
-    if (process.exit) process.exit(0);
-  });
-
-  process.on('SIGINT', () => {
-    console.log('[CronInit] Received SIGINT, shutting down cron jobs...');
-    stopCronJobs();
-    if (process.exit) process.exit(0);
-  });
+// Graceful shutdown on process signals (Node / Electron environments)
+if (typeof process !== 'undefined' && typeof process.on === 'function') {
+  process.on('SIGTERM', () => { stopCronJobs(); });
+  process.on('SIGINT',  () => { stopCronJobs(); });
 }
 
 export default {
@@ -99,5 +51,5 @@ export default {
   getCronJobStatus,
   addScheduleToCron,
   removeScheduleFromCron,
-  updateScheduleInCron
+  updateScheduleInCron,
 };

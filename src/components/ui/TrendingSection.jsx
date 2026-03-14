@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, Clock, ArrowRight } from 'lucide-react';
-import { fetchNewsByCategory, NEWS_CATEGORIES } from '../../api/gnews';
+// [GNEWS DIRECT CALL DISABLED] - Trending now reads from Supabase DB
+// import { fetchNewsByCategory, NEWS_CATEGORIES } from '../../api/gnews';
+import { getArticles } from '../../api/articles';
 
 // Fallback placeholder image
 const FALLBACK_IMAGE = '/assets/img/blog/blog-default-1.jpg';
@@ -147,24 +149,32 @@ export default function TrendingSection({ fallbackArticles = [] }) {
             setLoading(true);
             setError(null);
             try {
-                // Fetch from multiple categories for diverse trending content
-                const results = await Promise.all(
-                    NEWS_CATEGORIES.slice(0, 3).map(cat =>
-                        fetchNewsByCategory(cat.query, 1, 5)
-                    )
-                );
+                // [GNEWS DIRECT CALL DISABLED]
+                // Re-enable the block below to read trending news live from GNews API:
+                // const results = await Promise.all(
+                //     NEWS_CATEGORIES.slice(0, 3).map(cat =>
+                //         fetchNewsByCategory(cat.query, 1, 5)
+                //     )
+                // );
+                // const allArticles = results
+                //     .flatMap(result => result.articles)
+                //     .filter((article, index, self) =>
+                //         index === self.findIndex(a => a.title === article.title)
+                //     )
+                //     .slice(0, 8);
+                // setTrendingArticles(allArticles);
 
-                // Combine and deduplicate articles
-                const allArticles = results
-                    .flatMap(result => result.articles)
-                    .filter((article, index, self) =>
-                        index === self.findIndex(a => a.title === article.title)
-                    )
-                    .slice(0, 8);
-
-                setTrendingArticles(allArticles);
+                // Read trending articles directly from Supabase database
+                const res = await getArticles(1, 8);
+                const articles = (res?.articles || []).map(a => ({
+                    ...a,
+                    // Ensure image field is normalised for FeaturedCard/SmallCard
+                    image: a.bannerImage || a.banner_image || null,
+                    publishedAt: a.publishedAt || a.published_at,
+                }));
+                setTrendingArticles(articles);
             } catch (err) {
-                console.error('Error fetching trending news:', err);
+                console.error('Error fetching trending news from DB:', err);
                 setError(err.message);
             } finally {
                 setLoading(false);

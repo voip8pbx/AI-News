@@ -8,21 +8,22 @@ import Register from './pages/Register';
 import ArticleDetail from './pages/ArticleDetail';
 import LoginModal from './components/modals/LoginModal';
 import Profile from './pages/Profile';
+import NewsFetchPanel from './components/ui/NewsFetchPanel';
 
-import AdminRoute from './utils/ProtectedRoute';
+
 
 import Analytics from './pages/Analytics';
 import { Toaster } from 'react-hot-toast';
 import { BrandingProvider } from './context/BrandingContext';
 import { ThemeProvider } from './context/ThemeContext';
 
-// Initialize cron jobs for backend functionality
+// Auto-start the hourly news ingestion cron service
 import { startCronJobs } from './cron/initCronJobs.js';
 
 function AppContent() {
   const location = useLocation();
 
-  // Start cron jobs once when app mounts
+  // Start the automatic hourly ingestion cron on app mount
   useEffect(() => {
     startCronJobs().catch(console.error);
   }, []);
@@ -42,13 +43,10 @@ function AppContent() {
               <Routes>
                 <Route
                   path="/analytics"
-                  element={
-                    <AdminRoute>
-                      <Analytics />
-                    </AdminRoute>
-                  }
+                  element={<Analytics />}
                 />
                 <Route path="/" element={<Home />} />
+                <Route path="/fetch-news" element={<NewsFetchPanel />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/profile" element={<Profile />} />

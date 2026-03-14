@@ -200,10 +200,14 @@ const mapArticle = (row) => {
   if (!row) return row;
   return {
     ...row,
-    bannerImage: row.banner_image ?? row.bannerImage,
-    publishedAt: row.published_at ?? row.publishedAt,
+    // Snake-case → camelCase field mappings
+    bannerImage:  row.banner_image  ?? row.bannerImage,
+    publishedAt:  row.published_at  ?? row.publishedAt,
     categorySlug: row.category_slug ?? row.categorySlug,
-    source: row.source || (row.source_name ? { name: row.source_name } : undefined),
+    source: row.source || (row.source_name ? { name: row.source_name, url: row.source_url || '' } : undefined),
+    // Normalise description/content: support both plain-ingested and AI-rewritten articles
+    description: row.description || row.summary || '',
+    content:     row.content || row.ai_content || '',
   };
 };
 

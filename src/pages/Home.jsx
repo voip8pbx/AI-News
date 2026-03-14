@@ -13,7 +13,9 @@ import NewsSection from "../components/ui/NewsSection";
 import TrendingSection from "../components/ui/TrendingSection";
 import Footer from "../components/ui/Footer";
 
-import { getArticlesWithGeneratedImages, getArticlesByCategoryWithGeneratedImages, searchArticlesWithGeneratedImages, generateImagesForRecentArticles } from "../api/articles";
+// [AI IMAGE PIPELINE DISABLED] - Using plain article fetches from DB instead
+// import { getArticlesWithGeneratedImages, getArticlesByCategoryWithGeneratedImages, searchArticlesWithGeneratedImages, generateImagesForRecentArticles } from "../api/articles";
+import { getArticles, getArticlesByCategory, searchArticles } from "../api/articles";
 import { useHomeState } from "../context/HomeStateContext";
 import { getQuickGlanceData } from "../utils/quickGlance";
 import { getUserInteractions } from "../api/auth";
@@ -34,56 +36,42 @@ export default function Home() {
   const [journalArticles, setJournalArticles] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // 1. Initial Load: trigger ingestion based on pipelines, then get global content
+  // 1. Initial Load: Fetch articles directly from database (no cron, no AI image generation)
   useEffect(() => {
     const bootstrap = async () => {
-      console.log("[home] Page load: starting initial fetch");
+      console.log("[home] Page load: fetching articles from database");
       try {
-        // Ingestion is now handled by cron jobs, no need to run manually
-        console.log("[home] Cron jobs handle ingestion automatically");
-      } catch (err) {
-        console.error("[home] Bootstrap failed", err);
-      }
-
-      try {
-        console.log("[home] Fetching initial articles for hero/silo");
-        const res = await getArticlesWithGeneratedImages(1, 15);
-        console.log("[home] Initial articles response", res);
+        const res = await getArticles(1, 15);
+        console.log("[home] Articles fetched from DB:", res);
         if (res?.articles) setArticles(res.articles);
       } catch (err) {
-        console.error("[home] Failed to fetch initial articles", err);
+        console.error("[home] Failed to fetch articles from database", err);
       }
 
-      // Background: Generate AI images for recent articles (non-blocking)
-      try {
-        console.log("[home] Starting background image generation...");
-        await generateImagesForRecentArticles(20);
-        console.log("[home] Background image generation completed");
-
-        // Refetch articles to get the newly cached images
-        console.log("[home] Refetching articles to retrieve cached images...");
-        const refreshRes = await getArticlesWithGeneratedImages(1, 15);
-        if (refreshRes?.articles) {
-          console.log("[home] ✓ Articles refetched with cached images");
-          setArticles(refreshRes.articles);
-        }
-      } catch (err) {
-        console.warn("[home] Background image generation failed (non-critical)", err);
-      }
+      // [AI IMAGE PIPELINE DISABLED] - Re-enable below block to restore image generation
+      // try {
+      //   console.log("[home] Starting background image generation...");
+      //   await generateImagesForRecentArticles(20);
+      //   const refreshRes = await getArticlesWithGeneratedImages(1, 15);
+      //   if (refreshRes?.articles) setArticles(refreshRes.articles);
+      // } catch (err) {
+      //   console.warn("[home] Background image generation failed (non-critical)", err);
+      // }
     };
 
     if (articles.length === 0) bootstrap();
   }, []);
 
-  // 2. Journal-Specific Load: handles Search and Categories
+  // 2. Journal-Specific Load: handles Search and Categories (reads from DB only)
   const loadJournal = useCallback(async () => {
     setLoading(true);
     try {
+      // [AI IMAGE PIPELINE DISABLED] Using plain DB fetches
       const fetchApi = isSearchMode && searchQuery.trim()
-        ? searchArticlesWithGeneratedImages(searchQuery.trim(), page, 8)
+        ? searchArticles(searchQuery.trim(), page, 8)
         : (activeCategory && activeCategory !== "All")
-          ? getArticlesByCategoryWithGeneratedImages(activeCategory, page, 8)
-          : getArticlesWithGeneratedImages(page, 8);
+          ? getArticlesByCategory(activeCategory, page, 8)
+          : getArticles(page, 8);
 
       const res = await fetchApi;
 

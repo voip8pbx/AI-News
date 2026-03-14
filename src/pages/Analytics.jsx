@@ -12,6 +12,7 @@ import InjectionSchedule from "../components/admin/InjectionSchedule";
 import SystemSettings from "../components/admin/AdminSettings";
 import CategoryManager from "../components/admin/CategoryManager";
 import AdminUsers from "../components/admin/AdminUsers";
+import NewsFetchPanel from "../components/ui/NewsFetchPanel";
 
 const Analytics = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -143,9 +144,24 @@ const Analytics = () => {
             {activeTab === "ingestion" && <InjectionSchedule />}
 
             {activeTab === "cron-settings" && (
-              <div className="max-w-3xl bg-paper rounded-[2.5rem] border border-border p-10 shadow-sm shadow-black/5">
-                <h2 className="mb-8 font-serif text-3xl font-black text-ink">Cron Configuration</h2>
-                <SettingsForm currentSettings={data?.config} onUpdate={fetchStats} />
+              <div className="space-y-12">
+                <div className="flex items-center gap-3">
+                  <div className="h-px w-8 bg-accent/30" />
+                  <Clock size={14} className="text-accent" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-accent">Live Execution Monitor</span>
+                </div>
+                
+                <NewsFetchPanel />
+
+                <div className="flex items-center gap-3 pt-12">
+                  <div className="h-px w-8 bg-accent/30" />
+                  <Terminal size={14} className="text-accent" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-accent">Configuration Protocol</span>
+                </div>
+
+                <div className="max-w-3xl">
+                  <SettingsForm currentSettings={data?.config} onUpdate={fetchStats} />
+                </div>
               </div>
             )}
 

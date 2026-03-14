@@ -136,7 +136,7 @@ export const settingsApi = {
   },
 
   // Set cronjob interval and article expiry
-  cronShedule: async (scheduleData) => {
+  updateCronSchedule: async (scheduleData) => {
     const { error } = await supabase
       .from('settings')
       .update({
@@ -146,6 +146,18 @@ export const settingsApi = {
       .eq('id', 'model_config');
 
     if (error) throw error;
+
+    // Trigger local cron service restart to apply changes immediately
+    try {
+      const { cronService } = await import('../services/cronService');
+      await cronService.reInitialize();
+    } catch (err) {
+      console.warn('[SettingsAPI] Could not restart local cron service:', err);
+    }
+
     return { success: true };
   },
 };
+
+// Add backward compatible alias for the typo
+settingsApi.cronShedule = settingsApi.updateCronSchedule;
