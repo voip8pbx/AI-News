@@ -34,6 +34,7 @@ export default function Home() {
   } = useHomeState();
 
   const [journalArticles, setJournalArticles] = useState([]);
+  const [financeArticles, setFinanceArticles] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // 1. Initial Load: Fetch articles directly from database (no cron, no AI image generation)
@@ -46,6 +47,15 @@ export default function Home() {
         if (res?.articles) setArticles(res.articles);
       } catch (err) {
         console.error("[home] Failed to fetch articles from database", err);
+      }
+
+      // Fetch Finance category articles
+      try {
+        const financeRes = await getArticlesByCategory('finance', 1, 7);
+        console.log("[home] Finance articles fetched:", financeRes);
+        if (financeRes?.articles) setFinanceArticles(financeRes.articles);
+      } catch (err) {
+        console.error("[home] Failed to fetch Finance articles", err);
       }
 
       // [AI IMAGE PIPELINE DISABLED] - Re-enable below block to restore image generation
@@ -150,7 +160,7 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           {/* Main Content */}
           <div className="lg:col-span-8">
-            <MagazineGrid articles={articles.slice(0, 7)} title="Latest Stories" />
+            <MagazineGrid articles={financeArticles.slice(0, 7)} title="Finance" />
 
             {/* Trending Section */}
             <TrendingSection fallbackArticles={articles} />
