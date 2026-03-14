@@ -410,7 +410,11 @@ ORDER BY published_at DESC;
 INSERT INTO settings (id, site_title, active_text_provider, active_image_provider)
 VALUES 
 ('model_config', 'Verbis AI News', 'openrouter', 'openrouter')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+    site_title = EXCLUDED.site_title,
+    active_text_provider = EXCLUDED.active_text_provider,
+    active_image_provider = EXCLUDED.active_image_provider,
+    updated_at = NOW();
 
 -- Insert default categories
 INSERT INTO categories (name, slug, description, search_query, is_active, color, order_index, is_featured) VALUES 
