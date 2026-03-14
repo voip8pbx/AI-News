@@ -151,6 +151,27 @@ export default function MagazineGrid({ articles = [], title = "Top Stories" }) {
                             </div>
                         </article>
                     ))}
+                    
+                    {/* Handle missing articles - show placeholder cards */}
+                    {Array.from({ length: Math.max(0, 4 - articles.slice(3, 7).length) }).map((_, index) => (
+                        <article
+                            key={`placeholder-${index}`}
+                            className="group cursor-pointer relative overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all duration-300 aspect-square bg-white dark:bg-slate-800 opacity-60"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800"></div>
+                            <div className="absolute bottom-0 left-0 right-0 p-4">
+                                <h4 className="font-serif font-bold text-slate-400 dark:text-slate-500 leading-tight text-sm">
+                                    More articles coming soon...
+                                </h4>
+                                <span className="text-slate-400 dark:text-slate-500 text-xs mt-2 block">
+                                    {formatDate(null, {
+                                        month: 'short',
+                                        day: 'numeric'
+                                    })}
+                                </span>
+                            </div>
+                        </article>
+                    ))}
                 </div>
             </div>
         </section>
