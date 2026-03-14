@@ -14,7 +14,6 @@ import TrendingSection from "../components/ui/TrendingSection";
 import Footer from "../components/ui/Footer";
 
 import { getArticlesWithGeneratedImages, getArticlesByCategoryWithGeneratedImages, searchArticlesWithGeneratedImages, generateImagesForRecentArticles } from "../api/articles";
-import { runIngestionForActiveSchedules } from "../api/schedule";
 import { useHomeState } from "../context/HomeStateContext";
 import { getQuickGlanceData } from "../utils/quickGlance";
 import { getUserInteractions } from "../api/auth";
@@ -38,12 +37,12 @@ export default function Home() {
   // 1. Initial Load: trigger ingestion based on pipelines, then get global content
   useEffect(() => {
     const bootstrap = async () => {
-      console.log("[home] Page load: starting ingestion + initial fetch");
+      console.log("[home] Page load: starting initial fetch");
       try {
-        const ingestionResult = await runIngestionForActiveSchedules();
-        console.log("[home] Ingestion result", ingestionResult);
+        // Ingestion is now handled by cron jobs, no need to run manually
+        console.log("[home] Cron jobs handle ingestion automatically");
       } catch (err) {
-        console.error("[home] Ingestion failed on load", err);
+        console.error("[home] Bootstrap failed", err);
       }
 
       try {

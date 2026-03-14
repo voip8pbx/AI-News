@@ -14,6 +14,17 @@ export default defineConfig({
       'marlee-nonempathic-kent.ngrok-free.dev',
       'all'
     ]
+  },
+  define: {
+    global: 'globalThis',
+  },
+  optimizeDeps: {
+    exclude: ['node-cron']
+  },
+  build: {
+    rollupOptions: {
+      external: ['node-cron']
+    }
   }
 });
 
