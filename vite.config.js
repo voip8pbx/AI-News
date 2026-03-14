@@ -13,7 +13,14 @@ export default defineConfig({
       '127.0.0.1',
       'marlee-nonempathic-kent.ngrok-free.dev',
       'all'
-    ]
+    ],
+    proxy: {
+      '/api/gnews': {
+        target: 'https://gnews.io/api/v4',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/gnews/, '')
+      }
+    }
   },
   define: {
     global: 'globalThis',

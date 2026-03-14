@@ -1,5 +1,5 @@
 // GNews API service for fetching news articles
-const GNEWS_API_BASE_URL = 'https://gnews.io/api/v4';
+const GNEWS_API_BASE_URL = '/api/gnews';
 
 // Get API keys from environment variables with fallbacks
 const getApiKey = () => {

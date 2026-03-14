@@ -213,6 +213,11 @@ CREATE TABLE IF NOT EXISTS cron_execution_logs (
 -- =====================================================
 CREATE TABLE IF NOT EXISTS settings (
     id TEXT PRIMARY KEY DEFAULT 'model_config',
+    site_title TEXT DEFAULT 'Verbis AI News',
+    contact_email TEXT DEFAULT 'contact@verbis-ai.com',
+    contact_phone TEXT,
+    logo TEXT,
+    fallback_banner_url TEXT,
     active_text_provider TEXT DEFAULT 'openrouter',
     active_image_provider TEXT DEFAULT 'openrouter',
     ai_providers JSONB DEFAULT '{}',
