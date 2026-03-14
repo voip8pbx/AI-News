@@ -142,100 +142,12 @@ export default function MagazineGrid({ articles = [], title = "Top Stories" }) {
                                 <h4 className="font-serif font-bold text-white leading-tight group-hover:text-blue-200 transition-colors text-sm line-clamp-3">
                                     {article.title}
                                 </h4>
-                                <span className="text-white/70 text-xs mt-2 block">Recent</span>
-                            </div>
-                        </article>
-                    ))}
-                    
-                    {/* Handle missing articles - show placeholder cards */}
-                    {Array.from({ length: Math.max(0, 4 - articles.slice(3, 7).length) }).map((_, index) => (
-                        <article
-                            key={`placeholder-${index}`}
-                            className="group cursor-pointer relative overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all duration-300 aspect-square bg-white dark:bg-slate-800 opacity-60"
-                        >
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800"></div>
-                            <div className="absolute bottom-0 left-0 right-0 p-4">
-                                <h4 className="font-serif font-bold text-slate-400 dark:text-slate-500 leading-tight text-sm">
-                                    More articles coming soon...
-                                </h4>
-                                <span className="text-slate-400 dark:text-slate-500 text-xs mt-2 block">Loading...</span>
-                            </div>
-                        </article>
-                    ))}
-                </div>
-
-                {/* Flat Card Row - Different dimensions */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                    {articles.slice(7, 10).map((article, index) => (
-                        <article
-                            key={article._id || article.id || `magazine-grid-flat-${index}`}
-                            className="group cursor-pointer relative overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all duration-300 bg-white dark:bg-slate-800 md:col-span-2"
-                            onClick={() => navigate(`/${article.categorySlug}/${article.slug}`)}
-                        >
-                            {/* Flat Card Image - Different aspect ratio */}
-                            <div className="relative h-40 md:h-48 overflow-hidden">
-                                <img
-                                    src={article.generatedImage || article.bannerImage || article.ai_image_url || '/assets/img/blog/blog-default-1.jpg'}
-                                    alt={article.title}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                    onError={(e) => {
-                                        e.target.src = '/assets/img/blog/blog-default-1.jpg';
-                                    }}
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                                <span className="absolute top-3 left-3 bg-blue-600 text-white text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full">
-                                    {article.categorySlug?.replace(/-/g, ' ') || 'News'}
+                                <span className="text-white/70 text-xs mt-2 block">
+                                    {formatDate(article.createdAt, {
+                                        month: 'short',
+                                        day: 'numeric'
+                                    })}
                                 </span>
-                            </div>
-                            <div className="p-4">
-                                <h3 className="font-serif font-bold text-slate-900 dark:text-white leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-lg mb-2">
-                                    {article.title}
-                                </h3>
-                                <p className="text-slate-600 dark:text-slate-300 text-sm line-clamp-3 mb-3">
-                                    {article.description?.slice(0, 120)}...
-                                </p>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
-                                        <span>{article.author || 'Editorial Team'}</span>
-                                        <span>•</span>
-                                        <span>
-                                            {formatDate(article.createdAt, {
-                                                month: 'short',
-                                                day: 'numeric'
-                                            })}
-                                        </span>
-                                    </div>
-                                    <span className="text-blue-600 dark:text-blue-400 text-sm font-medium hover:underline">
-                                        Read More →
-                                    </span>
-                                </div>
-                            </div>
-                        </article>
-                    ))}
-                    
-                    {/* Handle missing flat cards - show placeholder */}
-                    {Array.from({ length: Math.max(0, 3 - articles.slice(7, 10).length) }).map((_, index) => (
-                        <article
-                            key={`flat-placeholder-${index}`}
-                            className="group cursor-pointer relative overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all duration-300 bg-white dark:bg-slate-800 opacity-60 md:col-span-2"
-                        >
-                            <div className="relative h-40 md:h-48 overflow-hidden">
-                                <div className="absolute inset-0 bg-gradient-to-t from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800"></div>
-                                <div className="absolute bottom-0 left-0 right-0 p-4">
-                                    <h4 className="font-serif font-bold text-slate-400 dark:text-slate-500 leading-tight text-sm mb-2">
-                                        More articles loading...
-                                    </h4>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-sm">
-                                            <span>Editorial Team</span>
-                                            <span>•</span>
-                                            <span>Loading...</span>
-                                        </div>
-                                        <span className="text-blue-400 dark:text-blue-500 text-sm font-medium">
-                                            Loading →
-                                        </span>
-                                    </div>
-                                </div>
                             </div>
                         </article>
                     ))}
