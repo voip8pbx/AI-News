@@ -64,7 +64,7 @@ export default function MagazineSidebar({ articles = [], categories = [] }) {
                     color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
                 }}>
                     <span className="widget-icon">🔥</span>
-                    Trending Now
+                    Startup Trends
                 </h3>
                 <div className="trending-list">
                     {trendingArticles.slice(0, 3).map((article, index) => (

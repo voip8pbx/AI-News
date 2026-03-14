@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { TrendingUp, Clock, ArrowRight } from 'lucide-react';
 // [GNEWS DIRECT CALL DISABLED] - Trending now reads from Supabase DB
 // import { fetchNewsByCategory, NEWS_CATEGORIES } from '../../api/gnews';
-import { getArticles } from '../../api/articles';
+import { getArticles, getArticlesByCategory } from '../../api/articles';
 
 // Fallback placeholder image
 const FALLBACK_IMAGE = '/assets/img/blog/blog-default-1.jpg';
@@ -149,33 +149,66 @@ export default function TrendingSection({ fallbackArticles = [] }) {
             setLoading(true);
             setError(null);
             try {
-                // [GNEWS DIRECT CALL DISABLED]
-                // Re-enable the block below to read trending news live from GNews API:
-                // const results = await Promise.all(
-                //     NEWS_CATEGORIES.slice(0, 3).map(cat =>
-                //         fetchNewsByCategory(cat.query, 1, 5)
-                //     )
-                // );
-                // const allArticles = results
-                //     .flatMap(result => result.articles)
-                //     .filter((article, index, self) =>
-                //         index === self.findIndex(a => a.title === article.title)
-                //     )
-                //     .slice(0, 8);
-                // setTrendingArticles(allArticles);
-
-                // Read trending articles directly from Supabase database
-                const res = await getArticles(1, 8);
-                const articles = (res?.articles || []).map(a => ({
+                // Fetch startup-related articles
+                console.log("[TrendingSection] Fetching startup articles...");
+                
+                // Try to get startup category articles first
+                let startupRes = await getArticlesByCategory('startup', 1, 8);
+                let articles = startupRes?.articles || [];
+                
+                // If no startup articles, try business category
+                if (articles.length === 0) {
+                    console.log("[TrendingSection] No startup articles found, trying business category...");
+                    const businessRes = await getArticlesByCategory('business', 1, 8);
+                    articles = businessRes?.articles || [];
+                }
+                
+                // If still no articles, get general articles and filter for startup-related content
+                if (articles.length === 0) {
+                    console.log("[TrendingSection] No business articles found, filtering general articles...");
+                    const generalRes = await getArticles(1, 20);
+                    const allArticles = generalRes?.articles || [];
+                    
+                    // Filter for startup-related keywords
+                    articles = allArticles.filter(article => {
+                        const searchText = (
+                            (article.title || '') + ' ' + 
+                            (article.description || '') + ' ' + 
+                            (article.category || '')
+                        ).toLowerCase();
+                        
+                        return searchText.includes('startup') || 
+                               searchText.includes('entrepreneur') || 
+                               searchText.includes('venture') || 
+                               searchText.includes('funding') || 
+                               searchText.includes('investment') ||
+                               searchText.includes('business') ||
+                               article.category === 'startup' ||
+                               article.category === 'business';
+                    }).slice(0, 8);
+                }
+                
+                console.log("[TrendingSection] Startup articles found:", articles.length);
+                
+                const normalizedArticles = articles.map(a => ({
                     ...a,
                     // Ensure image field is normalised for FeaturedCard/SmallCard
                     image: a.bannerImage || a.banner_image || null,
                     publishedAt: a.publishedAt || a.published_at,
                 }));
-                setTrendingArticles(articles);
+                
+                setTrendingArticles(normalizedArticles);
             } catch (err) {
-                console.error('Error fetching trending news from DB:', err);
+                console.error('Error fetching startup news:', err);
                 setError(err.message);
+                // Fallback to general articles
+                const fallbackRes = await getArticles(1, 8);
+                const fallbackArticles = (fallbackRes?.articles || []).map(a => ({
+                    ...a,
+                    image: a.bannerImage || a.banner_image || null,
+                    publishedAt: a.publishedAt || a.published_at,
+                }));
+                setTrendingArticles(fallbackArticles);
             } finally {
                 setLoading(false);
             }
@@ -194,7 +227,7 @@ export default function TrendingSection({ fallbackArticles = [] }) {
                     <div className="flex items-center gap-3 mb-8">
                         <TrendingUp className="text-blue-600 dark:text-blue-400" size={24} />
                         <h2 className="font-serif text-3xl md:text-4xl font-black text-slate-900 dark:text-white">
-                            Trending Now
+                            Startup Trends
                         </h2>
                     </div>
                     <TrendingSkeleton />
@@ -211,7 +244,7 @@ export default function TrendingSection({ fallbackArticles = [] }) {
                     <div className="flex items-center gap-3 mb-8">
                         <TrendingUp className="text-blue-600 dark:text-blue-400" size={24} />
                         <h2 className="font-serif text-3xl md:text-4xl font-black text-slate-900 dark:text-white">
-                            Trending Now
+                            Startup Trends
                         </h2>
                     </div>
                     <div className="text-center py-12 text-slate-400 dark:text-slate-500">
@@ -232,7 +265,7 @@ export default function TrendingSection({ fallbackArticles = [] }) {
                             <TrendingUp className="text-white" size={20} />
                         </div>
                         <h2 className="font-serif text-3xl md:text-4xl font-black text-slate-900 dark:text-white">
-                            Trending Now
+                            Startup Trends
                         </h2>
                     </div>
                     <button className="flex items-center gap-2 text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
