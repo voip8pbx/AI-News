@@ -150,12 +150,16 @@ ${imageUrl ? `Reference Image (use for visual inspiration): ${imageUrl}` : 'Crea
  * @returns {Promise<string>} - Generated image URL
  */
 const callNanoBananaAPI = async (prompt) => {
-    if (!NANO_BANANA_API_KEY || NANO_BANANA_API_KEY === 'AIzaSyDg_3jtO8IVSFENvzGXkgnAkt75CW1kdOgr') {
-        console.warn('[ImageGen] Nano Banana API key not configured. Using stable placeholder.');
+    // Check if key is missing or is the default placeholder key
+    const isPlaceholderKey = !NANO_BANANA_API_KEY || 
+                            NANO_BANANA_API_KEY.includes('AIzaSyDg') || 
+                            NANO_BANANA_API_KEY === 'your_key_here';
+
+    if (isPlaceholderKey) {
+        console.warn('[ImageGen] Nano Banana API key not configured or using placeholder. Using stable picsum fallback.');
         // Use a stable seed based on prompt hash for consistent images
         const seed = prompt.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0);
         const stableUrl = `https://picsum.photos/seed/${Math.abs(seed)}/1200/675`;
-        console.log('[ImageGen] Returning placeholder image:', stableUrl);
         return stableUrl;
     }
 

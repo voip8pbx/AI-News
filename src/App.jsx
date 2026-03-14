@@ -18,11 +18,14 @@ import { ThemeProvider } from './context/ThemeContext';
 // Initialize cron jobs for backend functionality
 import { startCronJobs } from './cron/initCronJobs.js';
 
-// Start cron jobs when app loads
-startCronJobs().catch(console.error);
-
 function AppContent() {
   const location = useLocation();
+
+  // Start cron jobs once when app mounts
+  useEffect(() => {
+    startCronJobs().catch(console.error);
+  }, []);
+
   // Check if we are on the admin path
   const isAdminPage = location.pathname.startsWith("/analytics");
 

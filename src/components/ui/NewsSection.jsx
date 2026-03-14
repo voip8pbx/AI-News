@@ -265,100 +265,44 @@ export default function NewsSection() {
 
     // Fetch news data with fallback to Supabase
 
+    // Fetch news data from Supabase (Ingestion is handled by background CronService)
     const fetchNews = useCallback(async () => {
-
         setLoading(true);
-
         setError(null);
 
-
-
         try {
-
-            // Try GNews API first (request even fewer articles to reduce rate limiting)
-
-            const result = await fetchNewsByCategory(activeCategory.query, 1, 4);
-
-            setNewsData(prev => ({
-
-                ...prev,
-
-                [activeCategory.id]: result.articles
-
+            const categorySlug = activeCategory.id.toLowerCase();
+            console.log(`[NewsSection] Loading articles for ${categorySlug} from Supabase...`);
+            
+            // Fetch from Supabase
+            const supabaseResult = await getArticlesByCategory(categorySlug, 1, 6);
+            
+            // Map the articles to the format expected by the UI
+            const transformedArticles = (supabaseResult.articles || []).map(article => ({
+                id: article.id,
+                title: article.title,
+                description: article.summary || (article.ai_content ? article.ai_content.substring(0, 160) + '...' : ''),
+                content: article.ai_content,
+                url: article.url,
+                image: article.bannerImage || article.banner_image,
+                publishedAt: article.publishedAt,
+                source: article.source?.name || article.source_name || 'Global News',
+                sourceUrl: article.source?.url || article.source_url,
+                category: categorySlug,
             }));
 
+            setNewsData(prev => ({
+                ...prev,
+                [activeCategory.id]: transformedArticles
+            }));
             setLastFetched(new Date());
 
-        } catch (gnewsError) {
-
-            console.warn('GNews API failed, trying Supabase fallback:', gnewsError);
-
-            
-
-            try {
-
-                // Fallback to Supabase articles
-
-                const categorySlug = activeCategory.id.toLowerCase();
-
-                const supabaseResult = await getArticlesByCategory(categorySlug, 1, 4);
-
-                
-
-                // Transform Supabase articles to match GNews format
-
-                const transformedArticles = supabaseResult.articles.map(article => ({
-
-                    id: article.id,
-
-                    title: article.title,
-
-                    description: article.summary || article.ai_content?.substring(0, 200) + '...',
-
-                    content: article.ai_content,
-
-                    url: article.url,
-
-                    image: article.bannerImage,
-
-                    publishedAt: article.publishedAt,
-
-                    source: article.source_name || 'Verbis AI',
-
-                    sourceUrl: article.source_url,
-
-                    category: activeCategory.query,
-
-                }));
-
-                
-
-                setNewsData(prev => ({
-
-                    ...prev,
-
-                    [activeCategory.id]: transformedArticles
-
-                }));
-
-                setLastFetched(new Date());
-
-                console.log(`[NewsSection] Successfully loaded ${transformedArticles.length} articles from Supabase`);
-
-            } catch (supabaseError) {
-
-                console.error('Both GNews and Supabase failed:', supabaseError);
-
-                setError(gnewsError.message || 'Failed to fetch news from all sources. Please try again later.');
-
-            }
-
+        } catch (err) {
+            console.error('[NewsSection] Failed to load articles from Supabase:', err);
+            setError('No articles found in database yet. The AI is currently generating news, please check back in a minute.');
         } finally {
-
             setLoading(false);
-
         }
-
     }, [activeCategory]);
 
 
@@ -375,43 +319,10 @@ export default function NewsSection() {
 
     // Preload other categories in background
 
+    // No background preloading - we only fetch from Supabase when needed
     useEffect(() => {
-
-        const preloadOtherCategories = async () => {
-
-            const otherCategories = NEWS_CATEGORIES.filter(c => c.id !== activeCategory.id);
-
-            for (const category of otherCategories.slice(0, 2)) {
-
-                if (!newsData[category.id]) {
-
-                    try {
-
-                        const result = await fetchNewsByCategory(category.query, 1, 4); // Reduced from 9 to 4
-
-                        setNewsData(prev => ({
-
-                            ...prev,
-
-                            [category.id]: result.articles
-
-                        }));
-
-                    } catch (err) {
-
-                        console.warn(`Failed to preload ${category.id}:`, err);
-
-                    }
-
-                }
-
-            }
-
-        };
-
-        preloadOtherCategories();
-
-    }, [activeCategory.id, newsData]);
+        // Categories are loaded on demand via fetchNews
+    }, [activeCategory.id]);
 
 
 

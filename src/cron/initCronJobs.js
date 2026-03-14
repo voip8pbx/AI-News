@@ -78,23 +78,18 @@ export const updateScheduleInCron = async (schedule) => {
   }
 };
 
-// Auto-start cron jobs when this module is imported (in production)
-if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
-  startCronJobs();
-}
-
-// Handle graceful shutdown
+// Graceful shutdown logic
 if (typeof process !== 'undefined') {
   process.on('SIGTERM', () => {
     console.log('[CronInit] Received SIGTERM, shutting down cron jobs...');
     stopCronJobs();
-    process.exit(0);
+    if (process.exit) process.exit(0);
   });
 
   process.on('SIGINT', () => {
     console.log('[CronInit] Received SIGINT, shutting down cron jobs...');
     stopCronJobs();
-    process.exit(0);
+    if (process.exit) process.exit(0);
   });
 }
 
