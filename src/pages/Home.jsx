@@ -51,11 +51,23 @@ export default function Home() {
 
       // Fetch Finance category articles
       try {
+        console.log("[home] Fetching Finance articles...");
         const financeRes = await getArticlesByCategory('finance', 1, 7);
         console.log("[home] Finance articles fetched:", financeRes);
-        if (financeRes?.articles) setFinanceArticles(financeRes.articles);
+        console.log("[home] Finance articles count:", financeRes?.articles?.length);
+        console.log("[home] Finance articles data:", financeRes?.articles);
+        
+        // If no Finance articles found, use general articles as fallback
+        if (financeRes?.articles && financeRes.articles.length > 0) {
+          setFinanceArticles(financeRes.articles);
+        } else {
+          console.log("[home] No Finance articles found, using general articles as fallback");
+          setFinanceArticles(articles.slice(0, 7));
+        }
       } catch (err) {
         console.error("[home] Failed to fetch Finance articles", err);
+        // Fallback to general articles
+        setFinanceArticles(articles.slice(0, 7));
       }
 
       // [AI IMAGE PIPELINE DISABLED] - Re-enable below block to restore image generation

@@ -254,3 +254,8 @@ ON CONFLICT (id) DO UPDATE
 SET site_title = EXCLUDED.site_title,
     active_text_provider = EXCLUDED.active_text_provider,
     active_image_provider = EXCLUDED.active_image_provider;
+
+INSERT INTO categories (name, slug, description, search_query, is_active)
+VALUES 
+('Finance', 'finance', 'Financial news and market updates', 'finance OR business OR market', true)
+ON CONFLICT (slug) DO NOTHING;

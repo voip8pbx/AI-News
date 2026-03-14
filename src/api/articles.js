@@ -262,10 +262,11 @@ export const getArticlesByCategory = async (categorySlug, page = 1, limit = 10) 
   const start = (page - 1) * limit;
   const end = start + limit - 1;
 
+  // Try multiple field names for category
   const { data, error, count } = await supabase
     .from('articles')
     .select('*', { count: 'exact' })
-    .eq('category_slug', categorySlug)
+    .or(`category_slug.eq.${categorySlug},category.eq.${categorySlug},category.ilike.%${categorySlug}%`)
     .order('published_at', { ascending: false })
     .range(start, end);
 
