@@ -1,4 +1,5 @@
-import cron from 'node-cron';
+// Removed node-cron as it is not compatible with browser environments
+// import cron from 'node-cron';
 import { supabase } from '../supabase';
 import { runIngestion } from '../api/schedule';
 
@@ -58,26 +59,20 @@ class CronService {
       }
 
       // Create cron expression based on schedule frequency
-      const cronExpression = this.generateCronExpression(schedule);
+      const intervalMs = this.getIntervalMs(schedule);
       
-      console.log(`[CronService] Starting cron job for schedule ${schedule.id} (${schedule.category}): ${cronExpression}`);
+      console.log(`[CronService] Starting interval job for schedule ${schedule.id} (${schedule.category}): every ${intervalMs}ms`);
 
-      // Create and start the cron job
-      const job = cron.schedule(cronExpression, async () => {
+      // Use setInterval instead of node-cron for browser compatibility
+      const interval = setInterval(async () => {
         await this.executeScheduledIngestion(schedule);
-      }, {
-        scheduled: false,
-        timezone: 'UTC'
-      });
+      }, intervalMs);
 
-      // Start the job
-      job.start();
-      
       // Store the job reference
       this.jobs.set(jobId, {
-        job,
+        interval,
         schedule,
-        cronExpression,
+        intervalMs,
         lastRun: null,
         runCount: 0
       });
@@ -89,25 +84,25 @@ class CronService {
   }
 
   /**
-   * Generate cron expression based on schedule configuration
+   * Get interval in milliseconds based on schedule configuration
    */
-  generateCronExpression(schedule) {
+  getIntervalMs(schedule) {
     // Default to every hour if not specified
     const interval = schedule.interval || 'hourly';
     
     switch (interval) {
       case 'hourly':
-        return '0 * * * *'; // Every hour at minute 0
+        return 3600000; // 1 hour
       case 'daily':
-        return '0 0 * * *'; // Every day at midnight
+        return 86400000; // 24 hours
       case 'every6hours':
-        return '0 */6 * * *'; // Every 6 hours
+        return 21600000;
       case 'every12hours':
-        return '0 */12 * * *'; // Every 12 hours
+        return 43200000;
       case 'every30minutes':
-        return '*/30 * * * *'; // Every 30 minutes
+        return 1800000;
       default:
-        return '0 * * * *'; // Default to hourly
+        return 3600000; // Default to hourly
     }
   }
 
@@ -204,9 +199,9 @@ class CronService {
   stopJob(jobId) {
     const jobInfo = this.jobs.get(jobId);
     if (jobInfo) {
-      jobInfo.job.stop();
+      clearInterval(jobInfo.interval);
       this.jobs.delete(jobId);
-      console.log(`[CronService] Stopped job: ${jobId}`);
+      console.log(`[CronService] Stopped interval: ${jobId}`);
       return true;
     }
     return false;
@@ -255,10 +250,10 @@ class CronService {
         jobId,
         scheduleId: jobInfo.schedule.id,
         category: jobInfo.schedule.category,
-        cronExpression: jobInfo.cronExpression,
+        intervalMs: jobInfo.intervalMs,
         lastRun: jobInfo.lastRun,
         runCount: jobInfo.runCount,
-        isRunning: jobInfo.job.running
+        isRunning: true // setInterval jobs are always running if they exist in the map
       });
     }
     
@@ -272,8 +267,8 @@ class CronService {
     console.log('[CronService] Shutting down cron service...');
     
     for (const [jobId, jobInfo] of this.jobs.entries()) {
-      jobInfo.job.stop();
-      console.log(`[CronService] Stopped job: ${jobId}`);
+      clearInterval(jobInfo.interval);
+      console.log(`[CronService] Stopped interval: ${jobId}`);
     }
     
     this.jobs.clear();

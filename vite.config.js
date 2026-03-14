@@ -18,13 +18,5 @@ export default defineConfig({
   define: {
     global: 'globalThis',
   },
-  optimizeDeps: {
-    exclude: ['node-cron']
-  },
-  build: {
-    rollupOptions: {
-      external: ['node-cron']
-    }
-  }
 });
 
