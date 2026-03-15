@@ -82,8 +82,10 @@ async function fetchFromGNews(category = 'general', max = 10) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-      // Use /search for startup/finance to get specific news, otherwise /top-headlines
-      const isSearch = category === 'startup' || category === 'finance';
+      // GNews Top Headlines only supports specific categories. 
+      // Everything else should use the /search endpoint.
+      const standardCategories = ['general', 'world', 'nation', 'business', 'technology', 'entertainment', 'sports', 'science', 'health'];
+      const isSearch = !standardCategories.includes(category.toLowerCase());
       const endpoint = isSearch ? '/search' : '/top-headlines';
       
       const url = new URL(`${GNEWS_BASE}${endpoint}`, window.location.origin);
@@ -92,7 +94,7 @@ async function fetchFromGNews(category = 'general', max = 10) {
         url.searchParams.set('q', category);
         url.searchParams.set('sortby', 'publishedAt');
       } else {
-        url.searchParams.set('category', category);
+        url.searchParams.set('category', category.toLowerCase());
       }
 
       url.searchParams.set('lang', 'en');

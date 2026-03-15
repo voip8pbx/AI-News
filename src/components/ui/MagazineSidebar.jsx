@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
+import { getArticlesByCategory } from "../../api/articles";
 
 // Safe date formatting function
 const formatDate = (dateString, options = {}) => {
@@ -28,8 +30,62 @@ export default function MagazineSidebar({ articles = [], categories = [] }) {
     const navigate = useNavigate();
     const { theme } = useTheme();
 
-    const trendingArticles = articles.slice(0, 3);
+    const [industryArticles, setIndustryArticles] = useState([]);
+    const [marketArticles, setMarketArticles] = useState([]);
     const latestArticles = articles.slice(3, 8);
+
+    useEffect(() => {
+        const fetchIndustryArticles = async () => {
+            try {
+                // Only show articles from 'industry' category
+                const res = await getArticlesByCategory('industry', 1, 5);
+                if (res?.articles && res.articles.length > 0) {
+                    setIndustryArticles(res.articles.slice(0, 5));
+                    return;
+                }
+                // Fallback: only industry-related from passed articles (no generic mix)
+                const industrySlug = (s) => (s || '').toLowerCase().replace(/-/g, ' ') === 'industry';
+                const filtered = articles.filter(a => 
+                    industrySlug(a.categorySlug) || 
+                    industrySlug(a.category_slug) || 
+                    (a.category && String(a.category).toLowerCase() === 'industry') ||
+                    /\bindustry\b/i.test((a.title || '') + (a.description || '') + (a.categorySlug || ''))
+                ).slice(0, 5);
+                setIndustryArticles(filtered);
+            } catch (error) {
+                console.error("Error fetching industry articles:", error);
+                const industrySlug = (s) => (s || '').toLowerCase().replace(/-/g, ' ') === 'industry';
+                const filtered = articles.filter(a => 
+                    industrySlug(a.categorySlug) || industrySlug(a.category_slug) || (a.category && String(a.category).toLowerCase() === 'industry')
+                ).slice(0, 5);
+                setIndustryArticles(filtered);
+            }
+        };
+
+        fetchIndustryArticles();
+
+        const fetchMarketArticles = async () => {
+            try {
+                // Try fetching articles from 'finance' category which usually contains Market/IPO news
+                const res = await getArticlesByCategory('finance', 1, 10);
+                let pool = res?.articles || [];
+                
+                // Filter for specifics or just use the pool
+                const filtered = pool.filter(a => 
+                    (a.title + (a.description || '')).toLowerCase().includes('market') || 
+                    (a.title + (a.description || '')).toLowerCase().includes('ipo') ||
+                    (a.title + (a.description || '')).toLowerCase().includes('stock')
+                ).slice(0, 5);
+                
+                setMarketArticles(filtered.length > 0 ? filtered : pool.slice(0, 5));
+            } catch (error) {
+                console.error("Error fetching market articles:", error);
+                setMarketArticles(articles.slice(3, 8));
+            }
+        };
+
+        fetchMarketArticles();
+    }, [articles]);
 
     const defaultCategories = [
         { name: 'Technology', count: 15, image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=100&h=100&fit=crop' },
@@ -64,12 +120,16 @@ export default function MagazineSidebar({ articles = [], categories = [] }) {
                     color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
                 }}>
                     <span className="widget-icon">🔥</span>
-                    Startup Trends
+                    Industry Insights
                 </h3>
                 <div className="trending-list">
-                    {trendingArticles.map((article, index) => (
+                    {industryArticles.length === 0 ? (
+                        <p className={`text-sm py-4 transition-colors ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                            No industry news at the moment.
+                        </p>
+                    ) : industryArticles.map((article, index) => (
                         <article
-                            key={article._id || article.id || `trending-${index}`}
+                            key={article._id || article.id || `industry-${index}`}
                             className={`trending-item transition-colors ${
                                 theme === 'dark' ? 'hover:bg-slate-700' : 'hover:bg-slate-50'
                             }`}
@@ -114,7 +174,7 @@ export default function MagazineSidebar({ articles = [], categories = [] }) {
                                 </span>
                             </div>
                         </article>
-                    ))}
+                    )) }
                 </div>
             </div>
 
@@ -133,12 +193,12 @@ export default function MagazineSidebar({ articles = [], categories = [] }) {
                     color: theme === 'dark' ? '#f1f5f9' : '#0f172a'
                 }}>
                     <span className="widget-icon">⚡</span>
-                    Latest Updates
+                    Market & IPO
                 </h3>
                 <div className="latest-list">
-                    {latestArticles.map((article, index) => (
+                    {marketArticles.map((article, index) => (
                         <article
-                            key={article._id || article.id || `latest-${index}`}
+                            key={article._id || article.id || `market-${index}`}
                             className={`latest-item transition-colors ${
                                 theme === 'dark' ? 'hover:bg-slate-700' : 'hover:bg-slate-50'
                             }`}
@@ -154,7 +214,7 @@ export default function MagazineSidebar({ articles = [], categories = [] }) {
                             }`} style={{
                                 color: theme === 'dark' ? '#64748b' : '#64748b'
                             }}>
-                                {formatDate(article.createdAt, {
+                                {formatDate(article.publishedAt || article.createdAt, {
                                     month: 'short',
                                     day: 'numeric'
                                 })}

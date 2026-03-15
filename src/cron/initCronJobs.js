@@ -41,10 +41,10 @@ export const stopCronJobs = () => {
 /** Returns live status for every category job – used by InjestionStatus.jsx */
 export const getCronJobStatus = () => cronService.getJobStatus();
 
-/** Legacy stubs – kept so InjectionSchedule.jsx compiles unchanged */
-export const addScheduleToCron      = async (schedule) => { /* no-op */ };
-export const removeScheduleFromCron = (scheduleId)     => { /* no-op */ return false; };
-export const updateScheduleInCron   = async (schedule) => { /* no-op */ };
+/** Legacy stubs – linked to cronService so InjectionSchedule.jsx updates logic */
+export const addScheduleToCron      = async (schedule) => cronService.addSchedule(schedule);
+export const removeScheduleFromCron = (scheduleId)     => cronService.removeSchedule(scheduleId);
+export const updateScheduleInCron   = async (schedule) => cronService.updateSchedule(schedule);
 
 // Graceful shutdown on process signals (Node / Electron environments)
 if (typeof process !== 'undefined' && typeof process.on === 'function') {

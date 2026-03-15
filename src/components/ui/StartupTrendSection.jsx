@@ -280,7 +280,7 @@ const TrendingSkeleton = () => (
 
 // Main Trending Section component
 
-export default function TrendingSection({ fallbackArticles = [] }) {
+export default function StartupTrendSection({ fallbackArticles = [] }) {
 
     const [trendingArticles, setTrendingArticles] = useState([]);
 
@@ -302,7 +302,7 @@ export default function TrendingSection({ fallbackArticles = [] }) {
 
                 // Fetch startup-related articles
 
-                console.log("[TrendingSection] Fetching startup articles...");
+                console.log("[StartupTrendSection] Fetching startup articles...");
 
                 
 
@@ -318,7 +318,7 @@ export default function TrendingSection({ fallbackArticles = [] }) {
 
                 if (articles.length === 0) {
 
-                    console.log("[TrendingSection] No startup articles found, trying business category...");
+                    console.log("[StartupTrendSection] No startup articles found, trying business category...");
 
                     const businessRes = await getArticlesByCategory('business', 1, 8);
 
@@ -332,7 +332,7 @@ export default function TrendingSection({ fallbackArticles = [] }) {
 
                 if (articles.length === 0) {
 
-                    console.log("[TrendingSection] No business articles found, filtering general articles...");
+                    console.log("[StartupTrendSection] No business articles found, filtering general articles...");
 
                     const generalRes = await getArticles(1, 20);
 
@@ -378,7 +378,7 @@ export default function TrendingSection({ fallbackArticles = [] }) {
 
                 
 
-                console.log("[TrendingSection] Startup articles found:", articles.length);
+                console.log("[StartupTrendSection] Startup articles found:", articles.length);
 
                 
 
@@ -440,6 +440,17 @@ export default function TrendingSection({ fallbackArticles = [] }) {
 
     const displayArticles = trendingArticles.length > 0 ? trendingArticles : fallbackArticles.slice(0, 8);
 
+    // Get category-specific articles (e.g., technology category)
+    const categoryArticles = displayArticles.filter(a => 
+        a.categorySlug === 'technology' || 
+        a.category === 'technology' ||
+        a.categorySlug === 'business' ||
+        a.category === 'business'
+    ).slice(0, 1);
+
+    // If no category articles found, use the next available article
+    const categoryArticle = categoryArticles[0] || displayArticles[3] || null;
+
 
 
     if (loading) {
@@ -456,7 +467,7 @@ export default function TrendingSection({ fallbackArticles = [] }) {
 
                         <h2 className="font-serif text-3xl md:text-4xl font-black text-slate-900 dark:text-white">
 
-                            Trending Now
+                            Startup Trends
 
                         </h2>
 
@@ -490,7 +501,7 @@ export default function TrendingSection({ fallbackArticles = [] }) {
 
                         <h2 className="font-serif text-3xl md:text-4xl font-black text-slate-900 dark:text-white">
 
-                            Trending Now
+                            Startup Trends
 
                         </h2>
 
@@ -532,7 +543,7 @@ export default function TrendingSection({ fallbackArticles = [] }) {
 
                         <h2 className="font-serif text-3xl md:text-4xl font-black text-slate-900 dark:text-white">
 
-                            Trending Now
+                            Startup Trends
 
                         </h2>
 
@@ -582,11 +593,35 @@ export default function TrendingSection({ fallbackArticles = [] }) {
 
                     {/* Small Cards with Image Background */}
 
-                    {displayArticles.slice(2).map((article, index) => (
+                    {displayArticles.slice(2, 3).map((article, index) => (
 
-                        <div key={article.id || index} className={`h-[320px] ${index === displayArticles.slice(2).length - 1 ? 'md:col-span-2' : ''}`}>
+                        <div key={article.id || index} className="h-[320px]">
 
                             <SmallCard article={article} index={index} />
+
+                        </div>
+
+                    ))}
+
+                    {/* Category News Card - Same size as SmallCard */}
+
+                    {categoryArticle && (
+
+                        <div className="h-[320px] md:col-span-1">
+
+                            <SmallCard article={categoryArticle} index={99} />
+
+                        </div>
+
+                    )}
+
+                    {/* Remaining Small Cards */}
+
+                    {displayArticles.slice(3).map((article, index) => (
+
+                        <div key={article.id || index} className={`h-[320px] ${index === displayArticles.slice(3).length - 1 ? 'md:col-span-2' : ''}`}>
+
+                            <SmallCard article={article} index={index + 3} />
 
                         </div>
 

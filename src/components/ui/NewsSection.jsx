@@ -277,6 +277,43 @@ export default function NewsSection() {
             // Fetch from Supabase
             const supabaseResult = await getArticlesByCategory(categorySlug, 1, 6);
             
+            // If no articles in Supabase, try fetching from GNews API
+            if (!supabaseResult.articles || supabaseResult.articles.length === 0) {
+                console.log(`[NewsSection] No articles in Supabase for ${categorySlug}, trying GNews API...`);
+                
+                try {
+                    const gnewsResult = await fetchNewsByCategory(activeCategory, 6);
+                    
+                    if (gnewsResult.articles && gnewsResult.articles.length > 0) {
+                        // Transform GNews articles to the expected format
+                        const transformedGNewsArticles = gnewsResult.articles.map((article, index) => ({
+                            id: `gnews-${categorySlug}-${index}`,
+                            title: article.title,
+                            description: article.description || '',
+                            content: article.content || '',
+                            url: article.url,
+                            image: article.image,
+                            publishedAt: article.publishedAt,
+                            source: article.source?.name || 'GNews',
+                            sourceUrl: article.source?.url,
+                            category: categorySlug,
+                            slug: article.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 50),
+                            categorySlug: categorySlug,
+                        }));
+                        
+                        setNewsData(prev => ({
+                            ...prev,
+                            [activeCategory.id]: transformedGNewsArticles
+                        }));
+                        setLastFetched(new Date());
+                        setLoading(false);
+                        return;
+                    }
+                } catch (gnewsErr) {
+                    console.warn(`[NewsSection] GNews API also failed for ${categorySlug}:`, gnewsErr.message);
+                }
+            }
+            
             // Map the articles to the format expected by the UI
             // Supports both manually-ingested articles (description/content fields)
             // and AI-rewritten articles (summary/ai_content fields)

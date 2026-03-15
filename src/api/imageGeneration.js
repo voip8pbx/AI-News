@@ -9,8 +9,38 @@ const GNEWS_TERTIARY_API_KEY = import.meta.env.VITE_GNEWS_TERTIARY_API_KEY;
 const GNEWS_QUATERNARY_API_KEY = import.meta.env.VITE_GNEWS_QUATERNARY_API_KEY;
 const GNEWS_QUINARY_API_KEY = import.meta.env.VITE_GNEWS_QUINARY_API_KEY;
 
-// Nano Banana API endpoint (placeholder - replace with actual endpoint)
-const NANO_BANANA_API_URL = 'https://api.nanobanana.ai/v1/generate';
+// Nano Banana API endpoint (configurable - can be replaced with any image generation API)
+const NANO_BANANA_API_URL = import.meta.env.VITE_IMAGE_GEN_API_URL || 'https://api.openai.com/v1/images/generations';
+
+// Alternative: Use Pollinations.AI (free, no API key needed for basic usage)
+const POLLINATIONS_API_URL = 'https://image.pollinations.ai/prompt/';
+
+/**
+ * Generate image using Pollinations.AI (free alternative)
+ * This uses the article's reference image as inspiration and creates a new editorial poster
+ * @param {string} prompt - The prompt for image generation
+ * @param {string} referenceImageUrl - Original article image URL for reference
+ * @returns {Promise<string>} - Generated image URL
+ */
+const generateWithPollinations = async (prompt, referenceImageUrl) => {
+    // Encode the prompt for URL
+    const encodedPrompt = encodeURIComponent(prompt.substring(0, 1000)); // Limit prompt length
+    
+    // Add reference image as seed for consistency if available
+    const seed = referenceImageUrl 
+        ? referenceImageUrl.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0)
+        : Math.floor(Math.random() * 1000000);
+    
+    // Build URL with parameters for editorial poster style
+    const width = 1080;
+    const height = 1920; // 9:16 aspect ratio for social media
+    const nologo = true; // No watermark
+    
+    const imageUrl = `${POLLINATIONS_API_URL}${encodedPrompt}?width=${width}&height=${height}&seed=${Math.abs(seed)}&nologo=${nologo}&enhance=true`;
+    
+    console.log('[ImageGen] Generated Pollinations URL:', imageUrl.substring(0, 100));
+    return imageUrl;
+};
 
 /**
  * Generate a hash from article title for caching
@@ -262,57 +292,88 @@ ${imageUrl ? `Reference Image URL: ${imageUrl}` : ''}`;
 };
 
 /**
- * Call Nano Banana API to generate an image
+ * Call image generation API to generate an image
  * @param {string} prompt - The prompt for image generation
+ * @param {string} referenceImageUrl - Original article image for reference
  * @returns {Promise<string>} - Generated image URL
  */
-const callNanoBananaAPI = async (prompt) => {
-    // Check if key is missing or is the default placeholder key
-    const isPlaceholderKey = !NANO_BANANA_API_KEY ||
-        NANO_BANANA_API_KEY === 'your_key_here' ||
-        NANO_BANANA_API_KEY === 'YOUR_API_KEY_HERE' ||
-        NANO_BANANA_API_KEY.trim() === '';
+const callImageGenerationAPI = async (prompt, referenceImageUrl) => {
+    // Check if using a real API (OpenAI, etc.) with API key
+    const hasRealApiKey = NANO_BANANA_API_KEY && 
+        NANO_BANANA_API_KEY !== 'your_key_here' && 
+        NANO_BANANA_API_KEY !== 'YOUR_API_KEY_HERE' &&
+        NANO_BANANA_API_KEY.trim() !== '';
 
-    if (isPlaceholderKey) {
-        console.warn('[ImageGen] Nano Banana API key not configured or using placeholder. Using stable picsum fallback.');
-        // Use a stable seed based on prompt hash for consistent images
-        const seed = prompt.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0);
-        const stableUrl = `https://picsum.photos/seed/${Math.abs(seed)}/1200/675`;
-        return stableUrl;
+    // If no real API configured, use Pollinations.AI (free)
+    if (!hasRealApiKey) {
+        console.log('[ImageGen] No API key configured, using Pollinations.AI (free)');
+        return generateWithPollinations(prompt, referenceImageUrl);
     }
 
+    // Try configured API (OpenAI DALL-E, etc.)
     try {
-        console.log('[ImageGen] Calling Nano Banana API...');
-        const response = await fetch(NANO_BANANA_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${NANO_BANANA_API_KEY}`
-            },
-            body: JSON.stringify({
-                prompt: prompt,
-                model: 'nano-banana-v1',
-                size: '16:9',
-                quality: 'high'
-            })
-        });
+        console.log('[ImageGen] Calling configured image generation API...');
+        
+        const isOpenAI = NANO_BANANA_API_URL.includes('openai.com');
+        
+        if (isOpenAI) {
+            // OpenAI DALL-E format
+            const response = await fetch(NANO_BANANA_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${NANO_BANANA_API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: 'dall-e-3',
+                    prompt: prompt.substring(0, 4000), // OpenAI has 4000 char limit
+                    n: 1,
+                    size: '1024x1792', // 9:16 aspect ratio
+                    quality: 'hd'
+                })
+            });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Nano Banana API error: ${response.status} - ${errorText}`);
-        }
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
 
-        const data = await response.json();
+            const data = await response.json();
+            if (data.data?.[0]?.url) {
+                console.log('[ImageGen] Generated with OpenAI:', data.data[0].url.substring(0, 50));
+                return data.data[0].url;
+            }
+        } else {
+            // Generic API format (configurable)
+            const response = await fetch(NANO_BANANA_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${NANO_BANANA_API_KEY}`
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    model: 'dall-e-3',
+                    size: '1024x1792',
+                    quality: 'high'
+                })
+            });
 
-        if (data.image_url) {
-            console.log('[ImageGen] Got image URL from API:', data.image_url.substring(0, 50));
-            return data.image_url;
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.image_url || data.url || data.data?.[0]?.url) {
+                return data.image_url || data.url || data.data[0].url;
+            }
         }
 
         throw new Error('No image URL in response');
+        
     } catch (error) {
-        console.error('[ImageGen] Nano Banana API call failed:', error);
-        throw error;
+        console.error('[ImageGen] API call failed, falling back to Pollinations:', error.message);
+        // Fallback to free Pollinations service
+        return generateWithPollinations(prompt, referenceImageUrl);
     }
 };
 
@@ -415,19 +476,30 @@ export const generateArticleImage = async (article, forceRegenerate = false) => 
     const prompt = buildNanoBananaPrompt(title, description, imageUrl);
 
     try {
-        const rawImageUrl = await callNanoBananaAPI(prompt);
-        console.log('[ImageGen] Got raw image from AI:', rawImageUrl.substring(0, 60));
+        const rawImageUrl = await callImageGenerationAPI(prompt, imageUrl);
+        console.log('[ImageGen] Got generated image URL:', rawImageUrl?.substring(0, 60));
 
         if (!rawImageUrl) {
             throw new Error('Generation returned empty URL');
         }
 
-        // --- NEW CLOUDINARY INTEGRATION ---
-        // Upload the temporary AI image to permanent Cloudinary storage
-        const permanentUrl = await uploadToCloudinary(rawImageUrl, 'ai_news_posters');
-        console.log('[ImageGen] Permanent Cloudinary URL:', permanentUrl);
+        // --- CLOUDINARY INTEGRATION ---
+        // Upload the generated image to permanent Cloudinary storage
+        let permanentUrl = rawImageUrl; // Default to raw URL if upload fails
+        try {
+            const uploadedUrl = await uploadToCloudinary(rawImageUrl, 'ai_news_posters');
+            if (uploadedUrl) {
+                permanentUrl = uploadedUrl;
+                console.log('[ImageGen] Permanent Cloudinary URL:', permanentUrl);
+            } else {
+                console.warn('[ImageGen] Cloudinary upload returned empty, using generated URL directly');
+            }
+        } catch (cloudinaryErr) {
+            console.warn('[ImageGen] Cloudinary upload failed, using generated URL directly:', cloudinaryErr.message);
+            // Keep using rawImageUrl as fallback
+        }
 
-        // Cache the result (using the permanent URL)
+        // Cache the result (using the permanent URL or generated URL)
         try {
             await cacheGeneratedImage(title, articleHash, permanentUrl, imageUrl);
             console.log('[ImageGen] Image cached successfully');
@@ -440,14 +512,23 @@ export const generateArticleImage = async (article, forceRegenerate = false) => 
     } catch (error) {
         console.error('[ImageGen] Failed to generate image for', title.substring(0, 30), ':', error.message);
 
-        // Fallback to original article image if AI generation fails
+        // IMPORTANT: Fallback to original reference image if AI generation fails
+        // This ensures we always show the article's actual image rather than a random placeholder
         if (imageUrl) {
-            console.log('[ImageGen] Falling back to original image:', imageUrl.substring(0, 40));
+            console.log('[ImageGen] Falling back to original reference image:', imageUrl.substring(0, 40));
+            // Cache the original image as fallback so we don't retry generation
+            try {
+                await cacheGeneratedImage(title, articleHash, imageUrl, imageUrl);
+            } catch (cacheErr) {
+                // Ignore cache errors
+            }
             return imageUrl;
         }
 
-        // If no original image, throw error for retry
-        throw new Error(`Image generation failed: ${error.message}`);
+        // If no original image, use Pollinations with article title as last resort
+        console.warn('[ImageGen] No reference image available, generating with article title');
+        const fallbackPrompt = `Editorial news poster: ${title}. Professional, cinematic, Bloomberg style.`;
+        return generateWithPollinations(fallbackPrompt, null);
     }
 };
 

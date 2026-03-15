@@ -10,7 +10,7 @@ import MagazineHero from "../components/ui/MagazineHero";
 import MagazineGrid from "../components/ui/MagazineGrid";
 import MagazineSidebar from "../components/ui/MagazineSidebar";
 import NewsSection from "../components/ui/NewsSection";
-import TrendingSection from "../components/ui/TrendingSection";
+import StartupTrendSection from "../components/ui/StartupTrendSection";
 import Footer from "../components/ui/Footer";
 
 import { getArticles, getArticlesByCategory, searchArticles, getArticlesWithGeneratedImages, getArticlesByCategoryWithGeneratedImages, searchArticlesWithGeneratedImages, generateImagesForRecentArticles } from "../api/articles";
@@ -39,10 +39,14 @@ export default function Home() {
   useEffect(() => {
     const bootstrap = async () => {
       console.log("[home] Page load: fetching articles from database");
+      let generalArticles = [];
       try {
         const res = await getArticles(1, 15);
         console.log("[home] Articles fetched from DB:", res);
-        if (res?.articles) setArticles(res.articles);
+        if (res?.articles) {
+          setArticles(res.articles);
+          generalArticles = res.articles; // Store for finance padding
+        }
       } catch (err) {
         console.error("[home] Failed to fetch articles from database", err);
       }
@@ -55,16 +59,18 @@ export default function Home() {
 
         // Ensure we have exactly 7 articles by padding with general articles if the category is thin
         let pool = financeRes?.articles || [];
-        if (pool.length < 7) {
+        if (pool.length < 7 && generalArticles.length > 0) {
           const extraNeeded = 7 - pool.length;
-          const extra = articles.filter(a => !pool.find(p => p.id === a.id)).slice(0, extraNeeded);
+          // Use _id or id for comparison (handle both formats)
+          const poolIds = new Set(pool.map(p => p._id || p.id));
+          const extra = generalArticles.filter(a => !poolIds.has(a._id || a.id)).slice(0, extraNeeded);
           pool = [...pool, ...extra];
         }
         setFinanceArticles(pool);
       } catch (err) {
         console.error("[home] Failed to fetch Finance articles", err);
         // Fallback to general articles
-        setFinanceArticles(articles.slice(0, 7));
+        setFinanceArticles(generalArticles.slice(0, 7));
       }
 
       // [AI IMAGE PIPELINE ENABLED] - Generate AI images for recent articles
@@ -172,7 +178,7 @@ export default function Home() {
             <MagazineGrid articles={financeArticles.slice(0, 7)} title="Finance" />
 
             {/* Trending Section */}
-            <TrendingSection fallbackArticles={articles} />
+            <StartupTrendSection fallbackArticles={articles} />
           </div>
 
           {/* Sidebar */}

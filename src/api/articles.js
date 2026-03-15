@@ -263,12 +263,45 @@ export const getArticlesByCategory = async (categorySlug, page = 1, limit = 10) 
   const end = start + limit - 1;
 
   // Try multiple field names for category
-  const { data, error, count } = await supabase
+  let { data, error, count } = await supabase
     .from('articles')
     .select('*', { count: 'exact' })
     .or(`category_slug.eq.${categorySlug},category.eq.${categorySlug},category.ilike.%${categorySlug}%`)
     .order('published_at', { ascending: false })
     .range(start, end);
+
+  // If no results, try searching in title and description for category keywords
+  if ((!data || data.length === 0) && !error) {
+    console.log(`[Articles] No exact category match for '${categorySlug}', searching title/description...`);
+    
+    // Build keyword search based on category
+    const categoryKeywords = {
+      'startup': ['startup', 'start-up', 'entrepreneur', 'venture', 'founder', 'unicorn'],
+      'crypto': ['crypto', 'cryptocurrency', 'bitcoin', 'ethereum', 'blockchain', 'defi', 'nft'],
+      'technology': ['tech', 'technology', 'ai', 'artificial intelligence', 'software', 'digital'],
+      'finance': ['finance', 'financial', 'stock', 'market', 'investment', 'banking', 'economy'],
+      'sports': ['sports', 'football', 'basketball', 'soccer', 'cricket', 'tennis', 'olympics'],
+      'world': ['world', 'international', 'global', 'foreign', 'diplomatic', 'nations']
+    };
+    
+    const keywords = categoryKeywords[categorySlug.toLowerCase()] || [categorySlug];
+    
+    // Search in title for any of the keywords
+    const titleQuery = keywords.map(k => `title.ilike.%${k}%`).join(',');
+    
+    const fallbackResult = await supabase
+      .from('articles')
+      .select('*', { count: 'exact' })
+      .or(titleQuery)
+      .order('published_at', { ascending: false })
+      .range(start, end);
+    
+    if (fallbackResult.data && fallbackResult.data.length > 0) {
+      console.log(`[Articles] Found ${fallbackResult.data.length} articles via keyword search`);
+      data = fallbackResult.data;
+      count = fallbackResult.count;
+    }
+  }
 
   if (error) throw error;
 
